@@ -1007,7 +1007,12 @@ html[data-density="compact"] .btn{padding:4px 10px;}
       <input type="text" placeholder="Search clients…" oninput="renderClients()" id="clientSearch" style="font-size:12px;padding:5px 8px;flex:1;min-width:140px;">
       <select onchange="renderClients()" id="clientGroupFilter" style="font-size:12px;padding:5px 8px;width:auto;"><option value="">All groups</option></select>
       <select onchange="renderClients()" id="clientServiceFilter" style="font-size:12px;padding:5px 8px;width:auto;"><option value="">All services</option></select>
+      <span style="font-size:11px;color:var(--tm);white-space:nowrap;margin-left:4px" title="Filter clients by Billing Completion % (Billed ÷ WO)">Billing % :</span>
+      <input type="number" min="0" max="500" placeholder="Min" id="clientPctMin" onchange="renderClients()" style="font-size:12px;padding:5px 6px;width:60px;">
+      <span style="font-size:11px;color:var(--tm)">to</span>
+      <input type="number" min="0" max="500" placeholder="Max" id="clientPctMax" onchange="renderClients()" style="font-size:12px;padding:5px 6px;width:60px;">
       <button class="btn sm pri" onclick="openExportModalFor('clients')" title="Export current filtered data"><i class="ti ti-file-export"></i> Export filtered</button>
+      <button class="btn sm" id="clientHideAllBtn" onclick="toggleHideAllClients()" title="Hide/show details for every client currently shown"><i class="ti ti-eye-off"></i> Hide All</button>
       <button class="btn sm" onclick="resetClientFilters()" title="Reset all filters"><i class="ti ti-filter-off"></i> Reset</button>
       <span id="clientColFilterBadge" style="display:none;margin-left:4px;background:var(--bga);color:var(--ta);border:0.5px solid var(--fa);border-radius:20px;padding:1px 9px;font-weight:500;cursor:pointer;font-size:12px;align-self:center" onclick="clearAllClientColFilters()"><i class="ti ti-filter" style="font-size:11px"></i> <span id="clientColFilterBadgeCount"></span> stage-table filter(s) active — click to clear</span>
     </div>
@@ -1025,6 +1030,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
       <div id="clientQuickDate" style="display:flex;gap:6px;align-items:center;"></div>
     </div>
     <div class="grand-total-bar" id="clientGrandTotal"></div>
+    <div id="clientHiddenSummary"></div>
     <div id="clientCards"></div>
   </div>
 
@@ -1036,11 +1042,17 @@ html[data-density="compact"] .btn{padding:4px 10px;}
       <select onchange="renderStages()" id="stageStatus"><option value="">All statuses</option></select>
       <select onchange="onFilterGroupChange('stage')" id="stageGroup"><option value="">All groups</option></select>
       <select onchange="renderStages()" id="stageServiceFilter"><option value="">All services</option></select>
+      <span style="font-size:11px;color:var(--tm);white-space:nowrap;margin-left:4px" title="Filter clients by Collection % (Received ÷ WO)">Collection % :</span>
+      <input type="number" min="0" max="500" placeholder="Min" id="stagePctMin" onchange="renderStages()" style="font-size:12px;padding:5px 6px;width:60px;">
+      <span style="font-size:11px;color:var(--tm)">to</span>
+      <input type="number" min="0" max="500" placeholder="Max" id="stagePctMax" onchange="renderStages()" style="font-size:12px;padding:5px 6px;width:60px;">
       <button class="btn sm pri" onclick="openExportModalFor('stages')" title="Export current filtered data"><i class="ti ti-file-export"></i> Export filtered</button>
+      <button class="btn sm" id="stageHideAllBtn" onclick="toggleHideAllStages()" title="Hide/show details for every client currently shown"><i class="ti ti-eye-off"></i> Hide All</button>
       <button class="btn sm" onclick="resetStageFilters()" title="Reset all filters"><i class="ti ti-filter-off"></i> Reset</button>
       <span id="stageColFilterBadge" style="display:none;margin-left:4px;background:var(--bga);color:var(--ta);border:0.5px solid var(--fa);border-radius:20px;padding:1px 9px;font-weight:500;cursor:pointer;font-size:12px;align-self:center" onclick="clearAllStageColFilters()"><i class="ti ti-filter" style="font-size:11px"></i> <span id="stageColFilterBadgeCount"></span> stage-table filter(s) active — click to clear</span>
     </div>
     <div class="grand-total-bar" id="stageGrandTotal"></div>
+    <div id="stageHiddenSummary"></div>
     <div class="date-filter-bar">
       <span class="date-filter-label" title="All date filtering on this screen uses the Invoice Date — the 'Date' field captured on each invoice entry."><i class="ti ti-calendar-filter" style="font-size:13px"></i> Filter by Invoice Date: <i class="ti ti-info-circle" style="font-size:11px;color:var(--tm)"></i></span>
       <select id="stageDateMode" onchange="onStageDateModeChange()">
@@ -1508,6 +1520,48 @@ create policy "own rows" on public.app_settings for all using ((select auth.uid(
           <button class="btn sm" onclick="document.getElementById('logoUpload').click()"><i class="ti ti-photo-up"></i> Upload logo</button>
           <button class="btn sm dan" id="removeLogo2Btn" onclick="removeLogo()" style="display:none"><i class="ti ti-photo-x"></i> Remove logo</button>
           <span style="font-size:11px;color:var(--tm)">Click the app icon in the topbar to upload directly</span>
+        </div>
+      </div>
+      <!-- Company Details (used on exported reports: PDF/Word/Excel/CSV headers & footers) -->
+      <div class="set-card">
+        <h3><i class="ti ti-building" style="font-size:15px"></i> Company Details</h3>
+        <div style="font-size:11px;color:var(--tm);margin-bottom:10px;">Shown on every exported report (PDF, Word, Excel, CSV) — header and footer.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">Company Name</label>
+            <input id="coName" placeholder="e.g. VDIS Consulting Pvt. Ltd." style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">GSTIN</label>
+            <input id="coGstin" placeholder="e.g. 07AAAAA0000A1Z5" style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+          <div style="grid-column:1 / -1;">
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">Address</label>
+            <input id="coAddress" placeholder="Street, City, State, PIN" style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">PAN</label>
+            <input id="coPan" placeholder="e.g. AAAAA0000A" style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">Phone</label>
+            <input id="coPhone" placeholder="e.g. +91 98765 43210" style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">Email</label>
+            <input id="coEmail" placeholder="e.g. accounts@company.com" style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">Website</label>
+            <input id="coWebsite" placeholder="e.g. www.company.com" style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+          <div style="grid-column:1 / -1;">
+            <label style="font-size:11px;color:var(--tm);font-weight:500;display:block;margin-bottom:3px">Footer Note (optional)</label>
+            <input id="coFooterNote" placeholder="e.g. This is a computer-generated report." style="font-size:13px;padding:6px 10px;width:100%;">
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn pri sm" onclick="saveCompanyDetails()"><i class="ti ti-check"></i> Save</button>
         </div>
       </div>
       <!-- FY -->
@@ -2763,6 +2817,8 @@ let state = {
     font: '',
     appTitle: '',
     appSubtitle: '',
+    company: { name:'', address:'', gstin:'', pan:'', phone:'', email:'', website:'', footerNote:'' },
+    hiddenClientDetails: [],
     logoDataUrl: '',
     // ── Field settings: defaults & required fields for entry forms ──────────
     invoiceDefaults: {
@@ -2901,6 +2957,21 @@ function resetBranding() {
   document.getElementById('settingAppTitle').value = '';
   document.getElementById('settingAppSubtitle').value = '';
   showToast('Branding reset');
+}
+
+function saveCompanyDetails() {
+  if(!state.settings.company) state.settings.company = {};
+  const co = state.settings.company;
+  co.name       = document.getElementById('coName').value.trim();
+  co.address    = document.getElementById('coAddress').value.trim();
+  co.gstin      = document.getElementById('coGstin').value.trim();
+  co.pan        = document.getElementById('coPan').value.trim();
+  co.phone      = document.getElementById('coPhone').value.trim();
+  co.email      = document.getElementById('coEmail').value.trim();
+  co.website    = document.getElementById('coWebsite').value.trim();
+  co.footerNote = document.getElementById('coFooterNote').value.trim();
+  save();
+  showToast('Company details saved — will appear on new exports.');
 }
 
 function applyBrandingToDOM() {
@@ -5148,7 +5219,7 @@ function resetInvFilters() {
 }
 
 function resetClientFilters() {
-  ['clientSearch','clientGroupFilter','clientServiceFilter'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['clientSearch','clientGroupFilter','clientServiceFilter','clientPctMin','clientPctMax'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   clientDateFilter=''; clientDateSubVal='';
   const dm=document.getElementById('clientDateMode'); if(dm) dm.value='';
   const ds=document.getElementById('clientDateSub'); if(ds) ds.innerHTML='';
@@ -5158,7 +5229,7 @@ function resetClientFilters() {
 }
 
 function resetStageFilters() {
-  ['stageSearch','stageClient','stageStatus','stageGroup','stageServiceFilter'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['stageSearch','stageClient','stageStatus','stageGroup','stageServiceFilter','stagePctMin','stagePctMax'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   stageDateFilter=''; stageDateSubVal='';
   const dm=document.getElementById('stageDateMode'); if(dm) dm.value='';
   const ds=document.getElementById('stageDateSub'); if(ds) ds.innerHTML='';
@@ -8221,6 +8292,29 @@ function renderClients() {
   if(gFilter) cls = cls.filter(cl=>(cl.group||'')===gFilter);
   if(svFilter) cls = cls.filter(cl=>(cl.service||'')===svFilter);
 
+  // Billing Completion % (Billed ÷ WO) — computed the same way as the card itself.
+  // Used both for the optional range filter and to sort ascending (lowest % first).
+  const pctMinEl = document.getElementById('clientPctMin');
+  const pctMaxEl = document.getElementById('clientPctMax');
+  const pctMin = pctMinEl && pctMinEl.value !== '' ? Number(pctMinEl.value) : null;
+  const pctMax = pctMaxEl && pctMaxEl.value !== '' ? Number(pctMaxEl.value) : null;
+  const clientPctOf = (cl) => {
+    const cr = rows.filter(r=>r.client===cl.name && clientRowPassesFilters(r));
+    const clWoAmt = cl.woamt || 0;
+    const tWO = clWoAmt || cr.reduce((s,r)=>s+Number(r.woamt||0),0);
+    const tB = cr.reduce((s,r)=>s+Number(r.billed||0),0);
+    return tWO ? Math.round(tB/tWO*100) : 0;
+  };
+  if(pctMin !== null || pctMax !== null) {
+    cls = cls.filter(cl => {
+      const pct = clientPctOf(cl);
+      if(pctMin !== null && pct < pctMin) return false;
+      if(pctMax !== null && pct > pctMax) return false;
+      return true;
+    });
+  }
+  cls = cls.slice().sort((a,b) => clientPctOf(a) - clientPctOf(b)); // ascending — lowest % first
+
   // When a date filter (dropdown or quick preset) is active, only show clients
   // that actually have invoice activity in that period.
   const dateActive = !!(clientDateFilter || dateFilterState.client.mode);
@@ -8261,6 +8355,8 @@ function renderClients() {
     <div class="gt-item"><div class="gt-lbl">Outstanding ₹</div><div class="gt-val cr drillable" onclick="openDrilldownFor('outstanding',_clientsDrillRows,'Clients — Grand Total')" title="Click to see the invoice rows behind this total">₹${fmt(gtT-gtP)}</div></div>`;
 
   // Group clients
+  window._clientPageVisibleNames = cls.map(cl=>cl.name);
+  window._clientHiddenEntriesTemp = [];
   const groups = {};
   cls.forEach((cl,i) => {
     const g = cl.group || '';
@@ -8287,6 +8383,7 @@ function renderClients() {
     }
   });
   document.getElementById('clientCards').innerHTML = html || '<div class="empty">No clients found.</div>';
+  renderHiddenSummary('clientHiddenSummary', 'clientHideAllBtn', window._clientHiddenEntriesTemp||[]);
   window._clientPageAllRows = visRows;
   // Update the client-table column filter badge
   const ccfCount = Object.keys(clientColFilters).length;
@@ -8355,8 +8452,15 @@ function buildClientCard(cl, i, rows) {
       <div class="bp-text">${cl.billing_process.replace(/</g,'&lt;')}</div>
     </div>` : '';
 
+  const isHiddenCl = (state.settings.hiddenClientDetails||[]).includes(cl.name);
+  const balOutCl = tT - tP;
+  if(isHiddenCl && window._clientHiddenEntriesTemp) window._clientHiddenEntriesTemp.push({ name: cl.name, balance: balOutCl });
+
   return `<div class="card">
     <div class="card-head">
+      <button class="btn xs" title="${isHiddenCl?'Show full details':'Hide details — show only balance'}" onclick="toggleClientDetails('${escAttr(cl.name)}')" style="margin-right:2px;padding:3px 7px;">
+        <i class="ti ti-${isHiddenCl?'eye':'eye-off'}" style="font-size:12px"></i>
+      </button>
       <div class="avatar" style="background:${col}22;color:${col}">${ini}</div>
       <div>
         <div style="font-weight:600;font-size:13px">${linkClient(cl.name)}
@@ -8374,6 +8478,11 @@ function buildClientCard(cl, i, rows) {
         <div style="font-size:11px;color:var(--tm)" title="Billing Completion = Total Billed ÷ Work Order Amount. Shows how much of the WO value has been raised as invoices (excl. GST).${overBilledWO?' This is over 100% — Billed exceeds the WO Amount currently on record for this client, which usually means either the WO Amount needs updating or this reflects legitimate extra/change-order work.':''}">Billing Completion <span style="font-size:10px;border:0.5px solid var(--bd);border-radius:3px;padding:0 3px;background:var(--s1);color:var(--tm)">Billed / WO</span>: <b style="color:${pctColor}">${pctLabel}</b>${overBilledWO?' <span style="font-size:9px;color:#e34948">⚠ exceeds WO</span>':''}</div>
       </div>
     </div>
+    ${isHiddenCl ? `<div style="padding:14px 14px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:12px;color:var(--tm)">Details hidden</span>
+      <span style="margin-left:auto;font-size:13px;color:var(--tm)">Balance ₹</span>
+      <span style="font-size:16px;font-weight:700;color:${balOutCl>0?'#e34948':'#1baf7a'}">${fmtSigned(balOutCl)}</span>
+    </div>` : `
     <div style="padding:12px 14px">
       ${cl.contact?`<div style="font-size:12px;color:var(--ts);margin-bottom:8px;display:flex;gap:16px;flex-wrap:wrap">
         ${cl.contact?`<span><i class="ti ti-user" style="font-size:12px"></i> ${cl.contact}</span>`:''}
@@ -8430,11 +8539,72 @@ function buildClientCard(cl, i, rows) {
         </tbody></table></div>
       <div class="status-totals-bar client-status-totals" style="border-radius:8px;margin-top:6px;padding:6px 10px;background:var(--s0);" data-cid="${cl.id}"></div>`:'<div style="font-size:12px;color:var(--tm);padding:8px 0">No invoices for this client in the selected FY.</div>'}
       ${billingProcessSection}
-    </div>
+    </div>`}
   </div>`;
 }
 
 // ─── STAGE TRACKER ────────────────────────────────────────────────────────────
+function toggleClientDetails(clientName) {
+  if(!Array.isArray(state.settings.hiddenClientDetails)) state.settings.hiddenClientDetails = [];
+  const arr = state.settings.hiddenClientDetails;
+  const idx = arr.indexOf(clientName);
+  if(idx >= 0) arr.splice(idx, 1); else arr.push(clientName);
+  save();
+  // Re-render whichever tab(s) are currently built/visible
+  if(typeof renderStages==='function') renderStages();
+  if(typeof renderClients==='function') renderClients();
+}
+
+// Hide/show every client currently visible on a given tab in one click.
+// If all of them are already hidden, this instead shows them all again.
+function _toggleHideAllFor(visibleNames) {
+  if(!Array.isArray(state.settings.hiddenClientDetails)) state.settings.hiddenClientDetails = [];
+  const arr = state.settings.hiddenClientDetails;
+  const allHidden = visibleNames.length>0 && visibleNames.every(n=>arr.includes(n));
+  if(allHidden) {
+    state.settings.hiddenClientDetails = arr.filter(n=>!visibleNames.includes(n));
+  } else {
+    visibleNames.forEach(n=>{ if(!arr.includes(n)) arr.push(n); });
+  }
+  save();
+  if(typeof renderStages==='function') renderStages();
+  if(typeof renderClients==='function') renderClients();
+}
+function toggleHideAllClients() { _toggleHideAllFor(window._clientPageVisibleNames||[]); }
+function toggleHideAllStages()  { _toggleHideAllFor(window._stagePageVisibleNames||[]); }
+
+// Builds the "hidden clients" summary panel — one heading + balance per
+// hidden client currently visible on this tab, plus a grand total row.
+// Also updates the tab's Hide All / Show All button to reflect state.
+function renderHiddenSummary(containerId, btnId, entries) {
+  // entries: [{name, balance}, ...] — only the ones actually hidden right now
+  const el = document.getElementById(containerId);
+  const btn = document.getElementById(btnId);
+  const allNames = (containerId==='clientHiddenSummary' ? window._clientPageVisibleNames : window._stagePageVisibleNames) || [];
+  const hiddenArr = state.settings.hiddenClientDetails || [];
+  const allHidden = allNames.length>0 && allNames.every(n=>hiddenArr.includes(n));
+  if(btn) btn.innerHTML = allHidden
+    ? '<i class="ti ti-eye"></i> Show All'
+    : '<i class="ti ti-eye-off"></i> Hide All';
+  if(!el) return;
+  if(!entries.length) { el.innerHTML = ''; return; }
+  const grandTotal = entries.reduce((s,e)=>s+e.balance,0);
+  el.innerHTML = `<div class="card" style="padding:10px 14px;margin-bottom:10px;background:var(--s1)">
+    <div style="font-size:11px;color:var(--tm);font-weight:600;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px">Hidden Clients — Balance Summary</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px 22px;">
+      ${entries.map(e=>`<div>
+        <div style="font-size:11px;color:var(--tm)">${e.name}</div>
+        <div style="font-size:14px;font-weight:600;color:${e.balance>0?'#e34948':'#1baf7a'}">${fmtSigned(e.balance)}</div>
+      </div>`).join('')}
+    </div>
+    <hr style="border:none;border-top:0.5px solid var(--bd);margin:10px 0 8px">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:12px;color:var(--tm);font-weight:600">Grand Total (hidden clients) ₹</span>
+      <span style="font-size:16px;font-weight:700;color:${grandTotal>0?'#e34948':'#1baf7a'}">${fmtSigned(grandTotal)}</span>
+    </div>
+  </div>`;
+}
+
 function renderStages() {
   let rows = fyRows();
   const cls = getClients();
@@ -8482,6 +8652,28 @@ function renderStages() {
   if(sgF) disp = disp.filter(c=>(clientGroupMap[c]||'')===sgF);
   if(sSearch) disp = disp.filter(c=>c.toLowerCase().includes(sSearch)||(clientNumMap[c]||'').toLowerCase().includes(sSearch));
 
+  // Collection % (Received ÷ WO) — computed the same way as the card itself.
+  // Used both for the optional range filter and to sort ascending (lowest % first).
+  const sPctMinEl = document.getElementById('stagePctMin');
+  const sPctMaxEl = document.getElementById('stagePctMax');
+  const sPctMin = sPctMinEl && sPctMinEl.value !== '' ? Number(sPctMinEl.value) : null;
+  const sPctMax = sPctMaxEl && sPctMaxEl.value !== '' ? Number(sPctMaxEl.value) : null;
+  const stagePctOf = (c) => {
+    const cr = filtered.filter(r=>r.client===c);
+    const tWOc = woAmountForClient(c, cr);
+    const tPc = cr.reduce((s,r)=>s+Number(r.paid||0),0);
+    return tWOc ? Math.round(tPc/tWOc*100) : 0;
+  };
+  if(sPctMin !== null || sPctMax !== null) {
+    disp = disp.filter(c => {
+      const pct = stagePctOf(c);
+      if(sPctMin !== null && pct < sPctMin) return false;
+      if(sPctMax !== null && pct > sPctMax) return false;
+      return true;
+    });
+  }
+  disp = disp.slice().sort((a,b) => stagePctOf(a) - stagePctOf(b)); // ascending — lowest % first
+
   // Grand totals
   const gtSV=filtered.reduce((s,r)=>s+stageValueOf(r),0);
   const gtB=filtered.reduce((s,r)=>s+Number(r.billed||0),0);
@@ -8508,6 +8700,8 @@ function renderStages() {
     <div class="sep"></div>
     <div class="gt-item"><div class="gt-lbl">Outstanding ₹</div><div class="gt-val cr drillable" onclick="openDrilldownFor('outstanding',_stageDrillRows,'Stage Tracker — Grand Total')" title="Click to see the invoice rows behind this total">₹${fmt(gtT-gtP)}</div></div>`;
 
+  window._stagePageVisibleNames = disp;
+  const _stageHiddenEntries = [];
   document.getElementById('stageCards').innerHTML = disp.map(c=>{
     const cr = filtered.filter(r=>r.client===c);
     if(!cr.length) return '';
@@ -8545,13 +8739,24 @@ function renderStages() {
       ${clRec.addr?`<span title="${clRec.addr.replace(/"/g,'&quot;')}"><i class="ti ti-map-pin" style="font-size:11px;color:var(--tm)"></i> ${clRec.addr.length>40?clRec.addr.slice(0,40)+'…':clRec.addr}</span>`:''}
       ${clRec.notes?`<span style="color:var(--tm)" title="${clRec.notes.replace(/"/g,'&quot;')}"><i class="ti ti-notes" style="font-size:11px"></i> ${clRec.notes.length>50?clRec.notes.slice(0,50)+'…':clRec.notes}</span>`:''}
     </div>`;
+    const isHiddenSt = (state.settings.hiddenClientDetails||[]).includes(c);
+    const balOutSt = tT - tP;
+    if(isHiddenSt) _stageHiddenEntries.push({ name:c, balance: balOutSt });
     return `<div class="card">
       <div class="card-head">
+        <button class="btn xs" title="${isHiddenSt?'Show full details':'Hide details — show only balance'}" onclick="toggleClientDetails('${escAttr(c)}')" style="margin-right:6px;padding:3px 7px;">
+          <i class="ti ti-${isHiddenSt?'eye':'eye-off'}" style="font-size:12px"></i>
+        </button>
         <span class="sec-title">${linkClient(c)}${cNum?` <span class="client-num">${cNum}</span>`:''}</span>
         ${cGrp?`<span class="group-badge">${cGrp}</span>`:''}
         <span style="font-size:11px;color:var(--tm);margin-left:auto">${cr[0]?.wono||''} · ${cr[0]?.service||''}</span>
         <span style="font-size:12px;font-weight:600;color:${overCollected?'#e34948':'#2a78d6'};margin-left:8px" title="Collection % = Total Received ÷ Work Order Amount. Shows what fraction of the WO value has actually been collected (cash in hand).${overCollected?' Over 100% means Received exceeds this client\'s WO Amount on record — check whether the WO Amount needs updating.':''}">Collection % <span style="font-size:10px;font-weight:400;color:var(--tm)">(Received / WO)</span>: ${pctLabelSt}${overCollected?' ⚠':''}</span>
       </div>
+      ${isHiddenSt ? `<div style="padding:14px 18px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:12px;color:var(--tm)">Details hidden</span>
+        <span style="margin-left:auto;font-size:13px;color:var(--tm)">Balance ₹</span>
+        <span style="font-size:16px;font-weight:700;color:${balOutSt>0?'#e34948':'#1baf7a'}">${fmtSigned(balOutSt)}</span>
+      </div>` : `
       ${clientInfoBar}
       <div class="tw"><table>
         <thead><tr><th style="width:44px"></th><th>Stage<button class="col-filter-btn${stageColFilters.stage?' active':''}" title="Filter Stage" onclick="event.stopPropagation();openStageColFilter('stage',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th>Stage Description</th><th>Service<button class="col-filter-btn${stageColFilters.service?' active':''}" title="Filter Service" onclick="event.stopPropagation();openStageColFilter('service',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num">Stage %<button class="col-filter-btn${stageColFilters.stagepct?' active':''}" title="Filter Stage %" onclick="event.stopPropagation();openStageColFilter('stagepct',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num" title="Expected Stage Billing Amount (excl. GST) = WO Amount × Stage % ÷ 100">Exp. Stage Billing ₹<br><small style="font-weight:400;color:var(--tm)">(without GST)</small><button class="col-filter-btn${stageColFilters.stageval?' active':''}" title="Filter Exp. Stage Billing ₹" onclick="event.stopPropagation();openStageColFilter('stageval',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num">Billed ₹<button class="col-filter-btn${stageColFilters.billed?' active':''}" title="Filter Billed ₹" onclick="event.stopPropagation();openStageColFilter('billed',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num" title="Stage value less billed (excl. GST)">Bal. to Bill ₹<br><small style="font-weight:400;color:var(--tm)">(without GST)</small><button class="col-filter-btn${stageColFilters.baltobill?' active':''}" title="Filter Bal. to Bill ₹" onclick="event.stopPropagation();openStageColFilter('baltobill',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num">GST ₹<button class="col-filter-btn${stageColFilters.gstamt?' active':''}" title="Filter GST ₹" onclick="event.stopPropagation();openStageColFilter('gstamt',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num">Total ₹<button class="col-filter-btn${stageColFilters.totalamt?' active':''}" title="Filter Total ₹" onclick="event.stopPropagation();openStageColFilter('totalamt',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num">Received ₹<button class="col-filter-btn${stageColFilters.paid?' active':''}" title="Filter Received ₹" onclick="event.stopPropagation();openStageColFilter('paid',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th class="num">Balance ₹<button class="col-filter-btn${stageColFilters.balance?' active':''}" title="Filter Balance ₹" onclick="event.stopPropagation();openStageColFilter('balance',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th>Invoice #</th><th title="The date this invoice was raised — this is the basis used for the 'Filter by Invoice Date' control above.">Invoice Date</th><th>Exp. Billing Date</th><th>Due date</th><th>Status<button class="col-filter-btn${stageColFilters.status?' active':''}" title="Filter Status" onclick="event.stopPropagation();openStageColFilter('status',this,window._stagePageAllRows)"><i class="ti ti-filter" style="font-size:11px"></i></button></th><th>Actions</th></tr></thead>
@@ -8585,8 +8790,9 @@ function renderStages() {
           <td class="num" style="color:var(--tw)"><span class="lnk" style="text-decoration-style:solid" onclick="openStageTotalDrilldown('${escAttr(c)}','gstamt')" title="Click to see the invoice rows behind this total"><b>₹${fmt(tG)}</b></span></td>
           <td class="num"><span class="lnk" style="text-decoration-style:solid" onclick="openStageTotalDrilldown('${escAttr(c)}','totalamt')" title="Click to see the invoice rows behind this total"><b>₹${fmt(tT)}</b></span></td><td class="num" style="color:#1baf7a"><span class="lnk" style="text-decoration-style:solid" onclick="openStageTotalDrilldown('${escAttr(c)}','paid')" title="Click to see the invoice rows behind this total"><b>₹${fmt(tP)}</b></span></td>
           <td class="num" style="color:#e34948"><span class="lnk" style="text-decoration-style:solid" onclick="openStageTotalDrilldown('${escAttr(c)}','outstanding')" title="Click to see the invoice rows behind this total"><b>₹${fmt(tT-tP)}</b></span></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        </tbody></table></div></div>`;
+        </tbody></table></div>`}</div>`;
   }).join('')||'<div class="empty">No stage data for this selection.</div>';
+  renderHiddenSummary('stageHiddenSummary', 'stageHideAllBtn', _stageHiddenEntries);
   window._stagePageAllRows = filtered;
   // Update the stage-table column filter badge
   const scfCount = Object.keys(stageColFilters).length;
@@ -8629,6 +8835,13 @@ function renderSettings() {
   const asEl = document.getElementById('settingAppSubtitle');
   if(atEl) atEl.value = state.settings.appTitle||'';
   if(asEl) asEl.value = state.settings.appSubtitle||'';
+  // Populate Company Details inputs
+  const co = state.settings.company || {};
+  const coFieldMap = { coName:'name', coAddress:'address', coGstin:'gstin', coPan:'pan', coPhone:'phone', coEmail:'email', coWebsite:'website', coFooterNote:'footerNote' };
+  Object.keys(coFieldMap).forEach(elId => {
+    const el = document.getElementById(elId);
+    if(el) el.value = co[coFieldMap[elId]] || '';
+  });
   // Highlight active theme & font buttons
   document.querySelectorAll('.theme-btn[data-theme]').forEach(b=>{
     b.classList.toggle('active', b.dataset.theme === (state.settings.theme||''));
@@ -12173,12 +12386,23 @@ function getReportMeta(reportTitle, extra) {
   const fyLabel = fy==='__overall__' ? 'All financial years' : fy;
   const grp = document.getElementById('groupFilter')?.value || '';
   const now = new Date();
-  const company = (state.settings.appTitle || 'BillTrack Pro');
+  const co = state.settings.company || {};
+  const company = (co.name || state.settings.appTitle || 'BillTrack Pro');
   const sub = (state.settings.appSubtitle || 'Client billing & work order management');
+  // Human-readable one-line company detail strip for export headers/footers —
+  // only includes fields that are actually filled in.
+  const coDetailParts = [];
+  if(co.address) coDetailParts.push(co.address);
+  if(co.gstin) coDetailParts.push('GSTIN: '+co.gstin);
+  if(co.pan) coDetailParts.push('PAN: '+co.pan);
+  if(co.phone) coDetailParts.push('Ph: '+co.phone);
+  if(co.email) coDetailParts.push(co.email);
+  if(co.website) coDetailParts.push(co.website);
+  const companyDetailLine = coDetailParts.join('  ·  ');
   // Date basis = which date field the report's date filtering / ageing is built on.
   const dateBasis = extra.dateBasis || DATE_BASIS_LABELS.invoice;
   return {
-    company, sub,
+    company, sub, companyDetailLine, companyFooterNote: co.footerNote || '',
     report: reportTitle,
     period: fyLabel,
     group: grp ? grp : 'All groups',
@@ -12493,6 +12717,7 @@ function fmtCell(val, isNum) {
 function reportToCSV(rep, meta) {
   const lines = [];
   lines.push(`"${meta.company} — ${meta.sub}"`);
+  if(meta.companyDetailLine) lines.push(`"${String(meta.companyDetailLine).replace(/"/g,'""')}"`);
   lines.push(`"Report:","${rep.title}"`);
   lines.push(`"Financial year:","${meta.period}"`);
   lines.push(`"Group filter:","${meta.group}"`);
@@ -12539,6 +12764,7 @@ function reportToWordHTML(rep, meta) {
     <div style="border-bottom:3px solid #1f4e79;padding-bottom:8px;margin-bottom:12px">
       <div style="font-size:20px;font-weight:bold;color:#1f4e79">${meta.company}</div>
       <div style="font-size:12px;color:#666">${meta.sub}</div>
+      ${meta.companyDetailLine?`<div style="font-size:10.5px;color:#888;margin-top:2px">${meta.companyDetailLine}</div>`:''}
     </div>
     <div style="font-size:16px;font-weight:bold;margin-bottom:8px">${rep.title}</div>
     <table style="font-size:12px;margin-bottom:12px">
@@ -12551,13 +12777,14 @@ function reportToWordHTML(rep, meta) {
       <tr><td style="padding:1px 14px 1px 0"><b>Total records:</b></td><td>${rep.data.length}</td></tr>
     </table>
     <table style="border-collapse:collapse;width:100%"><thead><tr>${th}</tr></thead><tbody>${body}${totalRow}</tbody></table>
-    <div style="font-size:10px;color:#999;margin-top:14px">Generated by ${meta.company} · ${meta.generated}</div>
+    <div style="font-size:10px;color:#999;margin-top:14px">${meta.companyFooterNote ? meta.companyFooterNote+' · ' : ''}Generated by ${meta.company} · ${meta.generated}</div>
   </body></html>`;
 }
 
 function reportToWorkbook(rep, meta) {
   const aoa = [];
   aoa.push([meta.company+' — '+meta.sub]);
+  if(meta.companyDetailLine) aoa.push([meta.companyDetailLine]);
   aoa.push([rep.title]);
   aoa.push(['Financial year:', meta.period]);
   aoa.push(['Group filter:', meta.group]);
@@ -12572,6 +12799,7 @@ function reportToWorkbook(rep, meta) {
   if(rep.totals) {
     aoa.push(rep.cols.map((c,i)=> i===0?'TOTAL':(c.num&&rep.totals[c.key]!==undefined?Number(rep.totals[c.key]):'')));
   }
+  if(meta.companyFooterNote) { aoa.push([]); aoa.push([meta.companyFooterNote]); }
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = rep.cols.map(c=>({wch: c.num?16:(c.key==='client'||c.key==='stage'||c.key==='metric'?28:14)}));
   const wb = XLSX.utils.book_new();
@@ -12588,24 +12816,30 @@ function reportToPDFDoc(rep, meta, password) {
   }
   const doc = new jsPDF(opts);
   const pw = doc.internal.pageSize.getWidth();
-  // Header band
-  doc.setFillColor(31,78,121); doc.rect(0,0,pw,52,'F');
+  // Header band — taller if we have a company detail line to show
+  const headerH = meta.companyDetailLine ? 62 : 52;
+  doc.setFillColor(31,78,121); doc.rect(0,0,pw,headerH,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
   doc.text(meta.company, 36, 26);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   doc.text(meta.sub, 36, 40);
+  if(meta.companyDetailLine) {
+    doc.setFontSize(7.5); doc.setTextColor(210,220,235);
+    doc.text(doc.splitTextToSize(meta.companyDetailLine, pw-72), 36, 52);
+  }
   // Title + meta
+  const titleY = headerH + 24;
   doc.setTextColor(20,20,20); doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text(rep.title, 36, 76);
+  doc.text(rep.title, 36, titleY);
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(90,90,90);
-  doc.text(`Financial year: ${meta.period}    |    Group: ${meta.group}    |    Records: ${rep.data.length}`, 36, 92);
+  doc.text(`Financial year: ${meta.period}    |    Group: ${meta.group}    |    Records: ${rep.data.length}`, 36, titleY+16);
   const _scopeLine = meta.scope ? `Scope: ${meta.scope}` : '';
-  doc.text(`Date filter applied: ${meta.dateFilterDesc||'-'}${_scopeLine?'    |    '+_scopeLine:''}`, 36, 104);
+  doc.text(`Date filter applied: ${meta.dateFilterDesc||'-'}${_scopeLine?'    |    '+_scopeLine:''}`, 36, titleY+28);
   // Date basis can be long — wrap it to the page width
   doc.setTextColor(120,120,120);
   const basisLines = doc.splitTextToSize(`Date basis: ${meta.dateBasis||'-'}`, pw-72);
-  doc.text(basisLines, 36, 115);
-  const afterBasisY = 115 + (basisLines.length-1)*10;
+  doc.text(basisLines, 36, titleY+39);
+  const afterBasisY = titleY+39 + (basisLines.length-1)*10;
   doc.setTextColor(90,90,90);
   doc.text(`Date of export: ${meta.generated}`, 36, afterBasisY+12);
   const tableStartY = afterBasisY + 24;
@@ -12629,8 +12863,9 @@ function reportToPDFDoc(rep, meta, password) {
     }
   });
   const fc = doc.internal.getNumberOfPages();
+  const footerText = (meta.companyFooterNote ? meta.companyFooterNote+' · ' : '') + `${meta.company} · Page `;
   for(let i=1;i<=fc;i++){ doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150);
-    doc.text(`${meta.company} · Page ${i} of ${fc}`, 36, doc.internal.pageSize.getHeight()-16); }
+    doc.text(`${footerText}${i} of ${fc}`, 36, doc.internal.pageSize.getHeight()-16); }
   return doc;
 }
 
