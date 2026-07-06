@@ -1792,6 +1792,23 @@ create policy "own rows" on public.app_settings for all using ((select auth.uid(
         </div>
         <div style="margin-top:10px;font-size:12px;color:var(--tm);">Current setting: <b id="autosaveIntervalDisplay">30 seconds</b></div>
       </div>
+      <!-- AUDIT TRAIL RETENTION -->
+      <div class="set-card">
+        <h3><i class="ti ti-history" style="font-size:15px"></i> Audit Trail Retention</h3>
+        <div style="font-size:11px;color:var(--tm);margin-bottom:10px;">How long audit trail entries are kept before older ones are automatically cleared out. This also removes them from the cloud, so choose a window that covers what you actually need for reference.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select id="auditRetentionSelect" style="width:auto;font-size:13px;padding:6px 10px;" onchange="saveAuditRetention()">
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="180">Last 6 months</option>
+            <option value="365" selected="">Last 1 year</option>
+            <option value="730">Last 2 years</option>
+            <option value="0">Keep forever (no automatic clearing)</option>
+          </select>
+          <span id="auditRetentionStatus" style="font-size:12px;color:var(--tsu);display:none;"><i class="ti ti-check"></i> Saved</span>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--tm);">Current setting: <b id="auditRetentionDisplay">1 year</b> · <span id="auditRetentionCount"></span></div>
+      </div>
       <!-- UNDO DURATION SETTING -->
       <div class="set-card">
         <h3><i class="ti ti-arrow-back-up" style="font-size:15px"></i> Undo delete duration</h3>
@@ -2819,6 +2836,7 @@ let state = {
     appSubtitle: '',
     company: { name:'', address:'', gstin:'', pan:'', phone:'', email:'', website:'', footerNote:'' },
     hiddenClientDetails: [],
+    auditRetentionDays: 365,
     logoDataUrl: '',
     // ── Field settings: defaults & required fields for entry forms ──────────
     invoiceDefaults: {
@@ -8864,6 +8882,15 @@ function renderSettings() {
   }
   const aiDisp = document.getElementById('autosaveIntervalDisplay');
   if(aiDisp) aiDisp.textContent = aiSec >= 60 ? (aiSec/60)+' minute'+(aiSec>60?'s':'') : aiSec+' seconds';
+  // Audit retention
+  const arDays = state.settings.auditRetentionDays===0 ? 0 : (state.settings.auditRetentionDays || 365);
+  const arSel = document.getElementById('auditRetentionSelect');
+  if(arSel) arSel.value = String(arDays);
+  const arLabelMap = {30:'30 days',90:'90 days',180:'6 months',365:'1 year',730:'2 years',0:'forever'};
+  const arDisp = document.getElementById('auditRetentionDisplay');
+  if(arDisp) arDisp.textContent = arLabelMap[arDays] || (arDays+' days');
+  const arCnt = document.getElementById('auditRetentionCount');
+  if(arCnt) arCnt.textContent = `(${(state.auditLog||[]).length} entries currently kept)`;
   // Undo duration
   const udSec = state.settings.undoDurationSec || 5;
   const udSel = document.getElementById('undoDurationSelect');
@@ -9048,6 +9075,35 @@ function saveAutosaveInterval() {
   const disp = document.getElementById('autosaveIntervalDisplay');
   if(disp) disp.textContent = sec >= 60 ? (sec/60)+' minute'+(sec>60?'s':'') : sec+' seconds';
   showToast('Auto-save interval updated to '+(sec>=60?(sec/60)+'m':sec+'s'));
+}
+
+// Removes audit entries older than state.settings.auditRetentionDays.
+// 0 means "keep forever" — no trimming by date (still capped by
+// MAX_AUDIT_ENTRIES as an absolute ceiling either way).
+function trimAuditLogByRetention() {
+  const days = Number(state.settings.auditRetentionDays || 0);
+  if(!days || !Array.isArray(state.auditLog) || !state.auditLog.length) return 0;
+  const cutoff = Date.now() - days*24*60*60*1000;
+  const before = state.auditLog.length;
+  state.auditLog = state.auditLog.filter(a => { const t = new Date(a.ts).getTime(); return !isFinite(t) || t >= cutoff; });
+  return before - state.auditLog.length;
+}
+
+function saveAuditRetention() {
+  const sel = document.getElementById('auditRetentionSelect');
+  const days = parseInt(sel?.value || '365');
+  state.settings.auditRetentionDays = days;
+  const removed = trimAuditLogByRetention();
+  save();
+  const st = document.getElementById('auditRetentionStatus');
+  if(st) { st.style.display='inline'; setTimeout(()=>{ st.style.display='none'; }, 2000); }
+  const disp = document.getElementById('auditRetentionDisplay');
+  const labelMap = {30:'30 days',90:'90 days',180:'6 months',365:'1 year',730:'2 years',0:'forever'};
+  if(disp) disp.textContent = labelMap[days] || (days+' days');
+  const cnt = document.getElementById('auditRetentionCount');
+  if(cnt) cnt.textContent = removed>0 ? `(cleared ${removed} older entr${removed===1?'y':'ies'} just now)` : `(${state.auditLog.length} entries currently kept)`;
+  if(typeof renderAudit==='function' && document.getElementById('page-audit')?.classList.contains('active')) renderAudit();
+  showToast(days===0 ? 'Audit trail will now be kept forever' : `Audit trail retention set to ${labelMap[days]||days+' days'}`+(removed>0?` — cleared ${removed} older entries`:''));
 }
 
 
@@ -13555,6 +13611,8 @@ async function cloudSignOut() {
 // ═══════════════════════════════════════════════════════════════════════════
 let _lastSyncedClients = {};   // id -> JSON string of what was last synced
 let _lastSyncedInvoices = {};  // id -> JSON string of what was last synced
+let _lastSyncedAuditIds = new Set(); // ids of audit entries already confirmed in the cloud
+let _lastSyncedUserIds = new Set();  // ids of internal-directory users already confirmed in the cloud
 let _relationalSyncBusy = false;
 
 // On (re)connect: pull everything from the relational tables, start realtime.
@@ -13597,13 +13655,20 @@ async function relationalSyncPull() {
       serverInvoices.forEach(i => { _lastSyncedInvoices[i.id] = JSON.stringify(i); });
     }
     if(auditRes.data) {
-      state.auditLog = auditRes.data.map(r => ({ id:r.id, ts:r.ts, ...r.data }));
+      const serverAudit = auditRes.data.map(r => ({ id:r.id, ts:r.ts, ...r.data }));
+      const serverIds = new Set(serverAudit.map(a=>a.id));
+      _lastSyncedAuditIds = new Set(serverIds); // these are confirmed already in the cloud
+      // Keep any local-only entry that hasn't been synced yet (e.g. created just before this pull)
+      const unsyncedAudit = (state.auditLog||[]).filter(a => a.id && !serverIds.has(a.id) && !_lastSyncedAuditIds.has(a.id));
+      state.auditLog = [...unsyncedAudit, ...serverAudit].sort((a,b)=> new Date(b.ts) - new Date(a.ts));
+      trimAuditLogByRetention();
     }
     if(settingsRes.data && settingsRes.data.data) {
       state.settings = { ...state.settings, ...settingsRes.data.data };
     }
     if(usersRes.data && usersRes.data.length) {
       state.auth.users = usersRes.data.map(r => ({ id:r.id, ...r.data }));
+      _lastSyncedUserIds = new Set(usersRes.data.map(r=>r.id));
     }
     _doSaveLocalOnly();
     cloudRerenderAll();
@@ -13652,14 +13717,37 @@ async function relationalSyncPush() {
       if(!curInvIds.has(id)) { await _sb.from('invoices').delete().eq('id', id).eq('owner_id', uidVal); delete _lastSyncedInvoices[id]; }
     }
 
+    // Audit log — append-only. Push any entry we haven't already synced.
+    // Never deleted/edited here, so this is a simple one-way insert diff.
+    for(const a of (state.auditLog||[])) {
+      if(!a.id || _lastSyncedAuditIds.has(a.id)) continue;
+      const { id, ts, ...rest } = a;
+      const { error } = await _sb.from('audit_log').upsert({ id, owner_id: uidVal, ts: ts || nowIso, data: rest });
+      if(!error) _lastSyncedAuditIds.add(id);
+    }
+    // Keep the cloud's audit history in line with the retention setting too —
+    // otherwise old entries would keep accumulating in Supabase even after
+    // they've been trimmed locally. Skipped entirely when set to "keep forever".
+    const retentionDays = Number(state.settings.auditRetentionDays || 0);
+    if(retentionDays > 0) {
+      const cutoffIso = new Date(Date.now() - retentionDays*24*60*60*1000).toISOString();
+      await _sb.from('audit_log').delete().eq('owner_id', uidVal).lt('ts', cutoffIso);
+    }
+
     // Settings — simple singleton upsert (rarely edited concurrently)
     await _sb.from('app_settings').upsert({ owner_id: uidVal, data: state.settings, updated_at: nowIso });
 
-    // Internal user directory — small list, upsert each record
+    // Internal user directory — small list, upsert each record and delete any removed ones
+    const curUserIds = new Set();
     for(const u of (state.auth?.users||[])) {
       if(!u.id) continue;
+      curUserIds.add(u.id);
       const { id, ...rest } = u;
-      await _sb.from('app_users').upsert({ id, owner_id: uidVal, data: rest, updated_at: nowIso });
+      const { error } = await _sb.from('app_users').upsert({ id, owner_id: uidVal, data: rest, updated_at: nowIso });
+      if(!error) _lastSyncedUserIds.add(id);
+    }
+    for(const id of _lastSyncedUserIds) {
+      if(!curUserIds.has(id)) { await _sb.from('app_users').delete().eq('id', id).eq('owner_id', uidVal); _lastSyncedUserIds.delete(id); }
     }
 
     setLocalMtime(Date.now());
@@ -13776,6 +13864,7 @@ function _handleRemoteInvoiceChange(payload) {
 function _handleRemoteAuditChange(payload) {
   if(payload.eventType !== 'INSERT') return;
   const r = payload.new;
+  _lastSyncedAuditIds.add(r.id); // this one's already in the cloud — don't push it back
   if((state.auditLog||[]).some(a=>a.id===r.id)) return;
   state.auditLog.unshift({ id:r.id, ts:r.ts, ...r.data });
   _doSaveLocalOnly();
@@ -15055,6 +15144,7 @@ function warnIfStorageBroken(){
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 try{
   load();
+  trimAuditLogByRetention(); // once per session — quietly drop entries past the configured retention window
   // Start the autosave safety net (interval flush + flush-on-close) immediately,
   // not just after login — so data entered during first-run setup is never lost
   // to the 300ms save debounce if the tab closes/reloads right away.
