@@ -894,6 +894,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
         <select onchange="renderDashboard()" id="dashStatus"><option value="">All statuses</option></select>
         <select onchange="onFilterGroupChange('dash')" id="dashGroup"><option value="">All groups</option></select>
         <select onchange="renderDashboard()" id="dashService"><option value="">All services</option></select>
+        <select onchange="renderDashboard()" id="dashAssignedFilter" title="Show only data for clients assigned to a specific person"><option value="">All assigned</option></select>
         <button class="btn sm" id="dashEditToggle" onclick="toggleDashEditMode()" style="margin-left:auto;display:flex;align-items:center;gap:4px;"><i class="ti ti-layout-dashboard"></i> Edit Dashboard</button>
       </div>
       <div class="dash-ribbon-row">
@@ -963,6 +964,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
       <select onchange="onFilterClientChange('inv')" id="invClient"><option value="">All clients</option></select>
       <select onchange="renderInvoices()" id="invService"><option value="">All services</option></select>
       <select onchange="onFilterGroupChange('inv')" id="invGroup"><option value="">All groups</option></select>
+      <select onchange="renderInvoices()" id="invAssignedFilter" title="Show only invoices for clients assigned to a specific person"><option value="">All assigned</option></select>
       <button class="btn suc sm" onclick="openAddInvoice()"><i class="ti ti-plus"></i> Add row</button>
       <button class="btn sm" onclick="openColEditor()" title="Edit columns"><i class="ti ti-columns"></i> Edit columns</button>
       <button class="btn sm pri" onclick="openExportModalFor('invoices')" title="Export current filtered data"><i class="ti ti-file-export"></i> Export filtered</button>
@@ -1006,6 +1008,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
     <div class="frow" style="margin-bottom:10px;">
       <input type="text" placeholder="Search clients…" oninput="renderClients()" id="clientSearch" style="font-size:12px;padding:5px 8px;flex:1;min-width:140px;">
       <select onchange="renderClients()" id="clientGroupFilter" style="font-size:12px;padding:5px 8px;width:auto;"><option value="">All groups</option></select>
+      <select onchange="renderClients()" id="clientAssignedFilter" style="font-size:12px;padding:5px 8px;width:auto;" title="Show only clients assigned to a specific person"><option value="">All assigned</option></select>
       <select onchange="renderClients()" id="clientServiceFilter" style="font-size:12px;padding:5px 8px;width:auto;"><option value="">All services</option></select>
       <span style="font-size:11px;color:var(--tm);white-space:nowrap;margin-left:4px" title="Filter clients by Billing Completion % (Billed ÷ WO)">Billing % :</span>
       <input type="number" min="0" max="500" placeholder="Min" id="clientPctMin" onchange="renderClients()" style="font-size:12px;padding:5px 6px;width:60px;">
@@ -1041,6 +1044,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
       <select onchange="onFilterClientChange('stage')" id="stageClient"><option value="">All clients</option></select>
       <select onchange="renderStages()" id="stageStatus"><option value="">All statuses</option></select>
       <select onchange="onFilterGroupChange('stage')" id="stageGroup"><option value="">All groups</option></select>
+      <select onchange="renderStages()" id="stageAssignedFilter" title="Show only clients assigned to a specific person"><option value="">All assigned</option></select>
       <select onchange="renderStages()" id="stageServiceFilter"><option value="">All services</option></select>
       <span style="font-size:11px;color:var(--tm);white-space:nowrap;margin-left:4px" title="Filter clients by Collection % (Received ÷ WO)">Collection % :</span>
       <input type="number" min="0" max="500" placeholder="Min" id="stagePctMin" onchange="renderStages()" style="font-size:12px;padding:5px 6px;width:60px;">
@@ -1096,12 +1100,13 @@ html[data-density="compact"] .btn{padding:4px 10px;}
         <option value="soon">Due soon</option>
         <option value="upcoming">Upcoming (scheduled)</option>
       </select>
+      <select id="remAssignedFilter" onchange="renderReminders()" title="Show only reminders for clients assigned to a specific person"><option value="">All assigned</option></select>
       <span style="font-size:11.5px;color:var(--tm);display:flex;align-items:center;gap:5px">
         <i class="ti ti-clock-hour-4" style="font-size:13px"></i> "Due soon" within
         <input id="remDaysAhead" type="number" min="1" max="365" value="14" onchange="renderReminders()" style="width:56px;padding:3px 6px;font-size:12px;">
         days
       </span>
-      <button class="btn sm" onclick="document.getElementById('remSearch').value='';document.getElementById('remType').value='';document.getElementById('remBucket').value='';document.getElementById('remDaysAhead').value=14;renderReminders();"><i class="ti ti-filter-off"></i> Reset</button>
+      <button class="btn sm" onclick="document.getElementById('remSearch').value='';document.getElementById('remType').value='';document.getElementById('remBucket').value='';document.getElementById('remAssignedFilter').value='';document.getElementById('remDaysAhead').value=14;renderReminders();"><i class="ti ti-filter-off"></i> Reset</button>
     </div>
 
     <div class="card">
@@ -1180,6 +1185,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
         <select id="rep_client" onchange="renderReports()"><option value="">All clients</option></select>
         <select id="rep_service" onchange="renderReports()"><option value="">All services</option></select>
         <select id="rep_status" onchange="renderReports()"><option value="">All statuses</option></select>
+        <select id="rep_assigned" onchange="renderReports()" title="Show only data for clients assigned to a specific person"><option value="">All assigned</option></select>
         <button class="btn sm" onclick="resetReportFilters()" title="Reset filters"><i class="ti ti-filter-off"></i> Reset</button>
       </div>
       <div class="dash-ribbon-row">
@@ -2247,7 +2253,7 @@ create policy "own rows" on public.app_settings for all using ((select auth.uid(
           </div>
         </div>
       </div>
-      <div class="fg"><label>Short code</label><input id="cm_code" placeholder="e.g. NTPC" maxlength="10"></div>
+      <div class="fg"><label>Project Code</label><input id="cm_code" placeholder="e.g. NTPC Substation Upgrade Phase 1" maxlength="150" oninput="limitToWords(this,15)"></div>
     </div>
     <div class="fr">
       <div class="fg"><label>Assigned to <small style="color:var(--tm)">(gets reminders for this client)</small></label>
@@ -3742,6 +3748,14 @@ function moveInvoice(id, dir) {
   const idxB = sibIdxs[targetPos];
   [state.invoices[idxA], state.invoices[idxB]] = [state.invoices[idxB], state.invoices[idxA]];
 
+  // Persist the new order explicitly on every sibling (not just the two swapped).
+  // Without this, the order only lives in this array's in-memory position —
+  // which is NOT preserved when invoices are fetched back from the cloud as
+  // independent rows (a plain database read has no guaranteed row order).
+  // Writing an explicit sortOrder is what makes a manual reorder survive a
+  // sync/reload instead of silently reverting a few seconds later.
+  sibIdxs.forEach((idx, i) => { state.invoices[idx].sortOrder = i; });
+
   save();
 
   // Re-render the active tab (preserves filters, just refreshes order)
@@ -3751,6 +3765,35 @@ function moveInvoice(id, dir) {
 
 // Build move-up / move-down button pair for a row
 // sibCount = total siblings, posInSibs = 0-based position among them
+// Extracts the number after "Stage" (e.g. "Stage 6" -> 6, "Stage 10" -> 10).
+// Rows without a parseable number sort to the end, after all numbered stages.
+// Truncates an input's value to at most `max` words as the user types —
+// used for fields that need a word-count limit rather than a character limit.
+function limitToWords(el, max) {
+  const words = el.value.split(/\s+/).filter(Boolean);
+  if(words.length > max) el.value = words.slice(0, max).join(' ');
+}
+
+// Populates an "Assigned to" filter dropdown from the internal user directory,
+// preserving the current selection if it's still valid. Returns the selected
+// user id (or '' for "All assigned").
+function populateAssignedFilter(elId) {
+  const el = document.getElementById(elId);
+  if(!el) return '';
+  const cur = el.value;
+  const users = (state.auth?.users||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  el.innerHTML = '<option value="">All assigned</option>'
+    + '<option value="__unassigned__">Unassigned</option>'
+    + users.map(u=>`<option value="${u.id}" ${u.id===cur?'selected':''}>${escAttr(u.name||u.email||'—')}</option>`).join('');
+  if(cur && cur!=='__unassigned__' && !users.some(u=>u.id===cur)) el.value = '';
+  return el.value;
+}
+
+function stageNumberOf(stageText) {
+  const m = String(stageText||'').match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 999999;
+}
+
 function buildMoveBtns(id, posInSibs, sibCount, stopProp='') {
   const up = posInSibs === 0;
   const dn = posInSibs === sibCount - 1;
@@ -4361,6 +4404,7 @@ const DASH_WIDGETS_DEF = [
   {id:'monthTrend',  title:'Monthly billing trend',           size:'half', removable:true},
   {id:'topClients',  title:'Top clients by billing',          size:'half', removable:true},
   {id:'groupBilling',title:'Billing by client group',         size:'half', removable:true},
+  {id:'assignedBilling',title:'Billing by Assigned Person',    size:'half', removable:true, isNew:true},
   {id:'collectionRate',title:'Collection rate',               size:'half', removable:true},
   {id:'serviceTable',title:'Service breakdown (table)',        size:'half', removable:true},
   {id:'dueSoon',     title:'Due & overdue invoices',          size:'full', removable:true},
@@ -4410,6 +4454,7 @@ const WIDGET_GALLERY_META = {
   monthTrend:   {cat:'Charts',   icon:'ti-chart-line',      iconBg:'#2a78d620', iconColor:'#2a78d6', desc:'Line or bar chart of monthly billing trend over the financial year.', size:'half'},
   topClients:   {cat:'Rankings', icon:'ti-trophy',          iconBg:'#eda10020', iconColor:'#eda100', desc:'Ranked list of top clients by total billed, with progress bars.', size:'half'},
   groupBilling: {cat:'Charts',   icon:'ti-building',        iconBg:'#1baf7a20', iconColor:'#1baf7a', desc:'Donut/pie/bar chart of billing broken down by client group company.', size:'half'},
+  assignedBilling: {cat:'Charts', icon:'ti-user-check',     iconBg:'#2a78d620', iconColor:'#2a78d6', desc:'Donut/pie/bar chart of billing broken down by which person a client is assigned to.', size:'half', isNew:true},
   collectionRate:{cat:'Summary', icon:'ti-circle-check',    iconBg:'#1baf7a20', iconColor:'#1baf7a', desc:'Collection rate ring chart: received vs outstanding as a percentage.', size:'half'},
   serviceTable: {cat:'Tables',   icon:'ti-table',           iconBg:'#4a3aa720', iconColor:'#4a3aa7', desc:'Table showing invoice count, billed amount and % share per service.', size:'half'},
   dueSoon:      {cat:'Tables',   icon:'ti-calendar-exclamation', iconBg:'#e3494820', iconColor:'#e34948', desc:'Upcoming and overdue invoices due within a configurable look-ahead window.', size:'full'},
@@ -4623,6 +4668,7 @@ function openWidgetPropPanel(id) {
     serviceBar: {types:[{v:'doughnut',icon:'ti-chart-donut',lbl:'Donut'},{v:'pie',icon:'ti-chart-pie',lbl:'Pie'},{v:'bar',icon:'ti-chart-bar',lbl:'Bar'}]},
     monthTrend: {types:[{v:'line',icon:'ti-chart-line',lbl:'Line'},{v:'bar',icon:'ti-chart-bar',lbl:'Bar'}]},
     groupBilling:{types:[{v:'doughnut',icon:'ti-chart-donut',lbl:'Donut'},{v:'pie',icon:'ti-chart-pie',lbl:'Pie'},{v:'bar',icon:'ti-chart-bar',lbl:'Bar'}]},
+    assignedBilling:{types:[{v:'doughnut',icon:'ti-chart-donut',lbl:'Donut'},{v:'pie',icon:'ti-chart-pie',lbl:'Pie'},{v:'bar',icon:'ti-chart-bar',lbl:'Bar'}]},
     expBillSchedule:{types:[{v:'bars',icon:'ti-list',lbl:'Detailed list'},{v:'bar',icon:'ti-chart-bar',lbl:'Vertical Bar'},{v:'horizontalBar',icon:'ti-chart-bar-off',lbl:'Horiz. Bar'},{v:'line',icon:'ti-chart-line',lbl:'Line'},{v:'doughnut',icon:'ti-chart-donut',lbl:'Donut'},{v:'pie',icon:'ti-chart-pie',lbl:'Pie'}]},
   };
   if(chartWidgets[id]) {
@@ -4636,7 +4682,7 @@ function openWidgetPropPanel(id) {
   }
 
   // ── CHART HEIGHT for chart widgets ──
-  if(['billedBar','statusPie','outstanding','serviceBar','monthTrend','groupBilling','collectionRate','expBillSchedule'].includes(id)) {
+  if(['billedBar','statusPie','outstanding','serviceBar','monthTrend','groupBilling','assignedBilling','collectionRate','expBillSchedule'].includes(id)) {
     html += `<div class="wpp-section">
       <div class="wpp-label"><i class="ti ti-arrows-vertical" style="font-size:11px"></i> Chart height (px)</div>
       <div class="wpp-row">
@@ -4670,7 +4716,7 @@ function openWidgetPropPanel(id) {
   }
 
   // ── TOP N for ranking-style charts/lists ──
-  if(['billedBar','outstanding','serviceBar','topClients','groupBilling'].includes(id)) {
+  if(['billedBar','outstanding','serviceBar','topClients','groupBilling','assignedBilling'].includes(id)) {
     const curN = props.topN || 0;
     html += `<div class="wpp-section">
       <div class="wpp-label"><i class="ti ti-list-numbers" style="font-size:11px"></i> Items to show</div>
@@ -4685,7 +4731,7 @@ function openWidgetPropPanel(id) {
   }
 
   // ── SHOW LEGEND for categorical charts ──
-  if(['billedBar','statusPie','serviceBar','groupBilling'].includes(id)) {
+  if(['billedBar','statusPie','serviceBar','groupBilling','assignedBilling'].includes(id)) {
     const curLegend = props.showLegend !== false;
     html += `<div class="wpp-section">
       <div class="wpp-row" style="align-items:center;">
@@ -4856,7 +4902,7 @@ function updateWidgetPreview() {
       const val=k.val(tWO,tB,tG,tT,tP,out,rows);
       return `<div class="wpp-preview-kpi"><div class="pk-lbl">${lbl}</div><div class="pk-val" style="color:${col}">${val.main}</div></div>`;
     }).join('')}</div>`;
-  } else if(['billedBar','statusPie','outstanding','serviceBar','monthTrend','groupBilling','collectionRate','expBillSchedule'].includes(id)) {
+  } else if(['billedBar','statusPie','outstanding','serviceBar','monthTrend','groupBilling','assignedBilling','collectionRate','expBillSchedule'].includes(id)) {
     // Real, live Chart.js preview — matches exactly whatever chart type is
     // currently selected (Bar / Pie / Donut / Line / etc.), so clicking
     // between the type buttons visibly updates this preview immediately,
@@ -4873,7 +4919,7 @@ function updateWidgetPreview() {
       if(!canvasEl || typeof Chart === 'undefined') return;
       const allowedTypes = {
         billedBar:['bar','horizontalBar'], statusPie:['doughnut','pie','bar'], outstanding:['bar','horizontalBar'],
-        serviceBar:['doughnut','pie','bar'], monthTrend:['line','bar'], groupBilling:['doughnut','pie','bar'],
+        serviceBar:['doughnut','pie','bar'], monthTrend:['line','bar'], groupBilling:['doughnut','pie','bar'], assignedBilling:['doughnut','pie','bar'],
         collectionRate:['doughnut'], expBillSchedule:['bars','bar','horizontalBar','line','doughnut','pie']
       };
       const fallback = (allowedTypes[id]||['bar'])[0];
@@ -4887,8 +4933,8 @@ function updateWidgetPreview() {
       // Small representative sample so the preview looks like real data
       // without recomputing full widget-specific aggregation logic here.
       let labels, values;
-      if(id==='statusPie' || id==='groupBilling' || id==='serviceBar') {
-        const dim = id==='statusPie' ? state.settings.statuses : id==='groupBilling' ? (state.settings.groups.length?state.settings.groups:['(no group)']) : getServices().slice(0,6);
+      if(id==='statusPie' || id==='groupBilling' || id==='assignedBilling' || id==='serviceBar') {
+        const dim = id==='statusPie' ? state.settings.statuses : id==='groupBilling' ? (state.settings.groups.length?state.settings.groups:['(no group)']) : id==='assignedBilling' ? ((state.auth.users||[]).map(u=>u.name).slice(0,6).length?(state.auth.users||[]).map(u=>u.name):['Unassigned']) : getServices().slice(0,6);
         labels = dim.slice(0,6);
         values = labels.map(()=>Math.round(Math.random()*80+20));
       } else if(id==='collectionRate') {
@@ -5188,7 +5234,7 @@ function populateDashFilters() {
   const cVal = cEl.value;
   const gVal = document.getElementById('dashGroup').value;
   // Active-filter badge
-  const anyActive = cVal||stEl.value||gVal||svEl.value||dashDateMode;
+  const anyActive = cVal||stEl.value||gVal||svEl.value||document.getElementById('dashAssignedFilter')?.value||dashDateMode;
   const badge = document.getElementById('dashFilterBadge');
   if(badge) badge.style.display = anyActive ? '' : 'none';
 }
@@ -5198,13 +5244,16 @@ function applyDashFilters(rows) {
   const ssF = document.getElementById('dashStatus')?.value||'';
   const sgF = document.getElementById('dashGroup')?.value||'';
   const svF = document.getElementById('dashService')?.value||'';
-  const clientGroupMap = {};
-  state.clients.forEach(c=>{ clientGroupMap[c.name]=c.group||''; });
+  const asgF = populateAssignedFilter('dashAssignedFilter');
+  const clientGroupMap = {}, clientAssignedMap = {};
+  state.clients.forEach(c=>{ clientGroupMap[c.name]=c.group||''; clientAssignedMap[c.name]=c.assignedTo||''; });
   rows = rows.filter(r=>{
     if(sel && r.client!==sel) return false;
     if(ssF && r.status!==ssF) return false;
     if(sgF && (clientGroupMap[r.client]||'')!==sgF) return false;
     if(svF && r.service!==svF) return false;
+    if(asgF === '__unassigned__' && clientAssignedMap[r.client]) return false;
+    else if(asgF && asgF!=='__unassigned__' && clientAssignedMap[r.client]!==asgF) return false;
     return true;
   });
   // Local date filter (date / month / quarter / year wise) + quick preset
@@ -5214,7 +5263,7 @@ function applyDashFilters(rows) {
 }
 
 function clearDashFilters() {
-  ['dashClient','dashStatus','dashGroup','dashService'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['dashClient','dashStatus','dashGroup','dashService','dashAssignedFilter'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   dashDateMode=''; dashDateSubVal='';
   const dm=document.getElementById('dashDateMode'); if(dm) dm.value='';
   const ds=document.getElementById('dashDateSub'); if(ds) ds.innerHTML='';
@@ -5223,7 +5272,7 @@ function clearDashFilters() {
 
 // ─── RESET FILTERS (per tab) ─────────────────────────────────────────────────
 function resetInvFilters() {
-  ['invSearch','invStatus','invClient','invService','invGroup'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['invSearch','invStatus','invClient','invService','invGroup','invAssignedFilter'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   invDateFilter=''; invDateSub='';
   const dm=document.getElementById('invDateMode'); if(dm) dm.value='';
   const ds=document.getElementById('invDateSub'); if(ds) ds.innerHTML='';
@@ -5237,7 +5286,7 @@ function resetInvFilters() {
 }
 
 function resetClientFilters() {
-  ['clientSearch','clientGroupFilter','clientServiceFilter','clientPctMin','clientPctMax'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['clientSearch','clientGroupFilter','clientServiceFilter','clientPctMin','clientPctMax','clientAssignedFilter'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   clientDateFilter=''; clientDateSubVal='';
   const dm=document.getElementById('clientDateMode'); if(dm) dm.value='';
   const ds=document.getElementById('clientDateSub'); if(ds) ds.innerHTML='';
@@ -5247,7 +5296,7 @@ function resetClientFilters() {
 }
 
 function resetStageFilters() {
-  ['stageSearch','stageClient','stageStatus','stageGroup','stageServiceFilter','stagePctMin','stagePctMax'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['stageSearch','stageClient','stageStatus','stageGroup','stageServiceFilter','stagePctMin','stagePctMax','stageAssignedFilter'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   stageDateFilter=''; stageDateSubVal='';
   const dm=document.getElementById('stageDateMode'); if(dm) dm.value='';
   const ds=document.getElementById('stageDateSub'); if(ds) ds.innerHTML='';
@@ -5991,8 +6040,8 @@ function buildWidgetCard(def,rows,tB,tG,tWO,tP,tT,outstanding) {
     const n = props.topN || 5;
     let list = getClients().map(c=>{
       const cr = rows.filter(r=>r.client===c);
-      return {c, b:cr.reduce((s,r)=>s+Number(r.billed||0),0)};
-    }).sort((a,b)=>b.b-a.b);
+      return {c, b:cr.reduce((s,r)=>s+Number(r.billed||0),0), _hasRows:cr.length>0};
+    }).filter(x=>x._hasRows).sort((a,b)=>b.b-a.b);
     if(n) list = list.slice(0,n);
     const maxV = list.length ? list[0].b : 0;
     const accent = props.accentColor || '#2a78d6';
@@ -6014,6 +6063,8 @@ function buildWidgetCard(def,rows,tB,tG,tWO,tP,tT,outstanding) {
       `</div>`;
   } else if(def.id==='groupBilling') {
     body = `<div style="padding:12px;${bgStyle}"><div class="chart-wrap" style="height:${chartH}px"><canvas id="cGroupBilling"></canvas></div></div>`;
+  } else if(def.id==='assignedBilling') {
+    body = `<div style="padding:12px;${bgStyle}"><div class="chart-wrap" style="height:${chartH}px"><canvas id="cAssignedBilling"></canvas></div></div>`;
   } else if(def.id==='collectionRate') {
     const pct = tT>0 ? Math.round(tP/tT*100) : 0;
     const recvColor = props.accentColor || '#1baf7a';
@@ -6374,7 +6425,12 @@ function buildWidgetCard(def,rows,tB,tG,tWO,tP,tT,outstanding) {
   else if(def.id==='woExpiry') {
     const soon = state.settings.dateSoonDays||30;
     const todayStr = new Date().toISOString().split('T')[0];
-    const trackedClients = state.clients.filter(c=>c.wostart||c.woexpiry||c.woext);
+    // Scope to only the clients that actually appear in the currently
+    // filtered `rows` — this is what makes the widget respect the Dashboard's
+    // Client / Group / Service / Assigned-to / Date filters, instead of
+    // always showing every client in the system regardless of filters.
+    const scopedClientNames = new Set(rows.map(r=>r.client));
+    const trackedClients = state.clients.filter(c=>(c.wostart||c.woexpiry||c.woext) && scopedClientNames.has(c.name));
     function woStatusOf(c) {
       const refDate = c.woext || c.woexpiry;
       if(!refDate) return {label:'No expiry set', diff:99999, color:'var(--tm)'};
@@ -6586,6 +6642,15 @@ function renderReminders() {
     (x.invno||'').toLowerCase().includes(q) ||
     (x.stage||'').toLowerCase().includes(q));
 
+  // Assigned-to filter — looks up each reminder's client to check who it's assigned to
+  const remAssignedFilter = populateAssignedFilter('remAssignedFilter');
+  if(remAssignedFilter) {
+    const clientAssignedMap = {};
+    state.clients.forEach(c=>{ clientAssignedMap[c.name]=c.assignedTo||''; });
+    if(remAssignedFilter === '__unassigned__') list = list.filter(x=>!clientAssignedMap[x.client]);
+    else list = list.filter(x=>clientAssignedMap[x.client]===remAssignedFilter);
+  }
+
   // KPI row (independent of the search/column filters below, but respects
   // the type/bucket dropdowns above since those define what counts as a
   // "reminder" at all for this threshold).
@@ -6785,8 +6850,8 @@ function renderDashCharts(rows,tB,tG,tWO,tP,tT,outstanding) {
     const n = getTopN('billedBar');
     let list = getClients().map(c=>{
       const cr = rows.filter(r=>r.client===c);
-      return {c, w:woAmountForClient(c, cr), b:cr.reduce((s,r)=>s+Number(r.billed||0),0)};
-    }).sort((a,b)=>b.b-a.b);
+      return {c, w:woAmountForClient(c, cr), b:cr.reduce((s,r)=>s+Number(r.billed||0),0), _hasRows:cr.length>0};
+    }).filter(x=>x._hasRows).sort((a,b)=>b.b-a.b);
     if(n) list = list.slice(0,n);
     cBilledChart = new Chart(document.getElementById('cBilled'),{type:'bar',
       data:{labels:list.map(x=>x.c.length>12?x.c.slice(0,12)+'…':x.c),datasets:[
@@ -6815,8 +6880,8 @@ function renderDashCharts(rows,tB,tG,tWO,tP,tT,outstanding) {
     let list = getClients().map(c=>{
       const cr = rows.filter(r=>r.client===c);
       const out = cr.reduce((s,r)=>s+Number(r.totalamt||0),0)-cr.reduce((s,r)=>s+Number(r.paid||0),0);
-      return {c, out};
-    }).sort((a,b)=>b.out-a.out);
+      return {c, out, _hasRows:cr.length>0};
+    }).filter(x=>x._hasRows).sort((a,b)=>b.out-a.out);
     if(n) list = list.slice(0,n);
     window.cOutstandingChart = new Chart(document.getElementById('cOutstanding'),{type:'bar',
       data:{labels:list.map(x=>x.c.length>12?x.c.slice(0,12)+'…':x.c),datasets:[
@@ -6868,6 +6933,27 @@ function renderDashCharts(rows,tB,tG,tWO,tP,tT,outstanding) {
       data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:CHART_COLORS,borderWidth:2,borderColor:'var(--s2)'}]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:getShowLegend('groupBilling',true),position: ctype==='bar'?'top':'right',labels:{font:{size:11},boxWidth:12}}},
         ...(ctype==='bar'?{scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}:{})}});
+  }
+
+  if(document.getElementById('cAssignedBilling')) {
+    // Client → assigned-person-name lookup ('Unassigned' when nobody is set)
+    const c2u = {};
+    state.clients.forEach(c=>{
+      const u = c.assignedTo ? (state.auth.users||[]).find(x=>x.id===c.assignedTo) : null;
+      c2u[c.name] = u ? (u.name||u.email||'Unassigned') : 'Unassigned';
+    });
+    const assignedMap = {};
+    rows.forEach(r=>{ const a = c2u[r.client] || 'Unassigned'; assignedMap[a] = (assignedMap[a]||0) + Number(r.billed||0); });
+    let entries = Object.entries(assignedMap).sort((a,b)=>b[1]-a[1]);
+    const n2 = getTopN('assignedBilling');
+    if(n2 && entries.length>n2) entries = entries.slice(0,n2);
+    if(window.cAssignedChart) window.cAssignedChart.destroy();
+    const ctype2 = getChartType('assignedBilling',['doughnut','pie','bar'],'doughnut');
+    window.cAssignedChart = new Chart(document.getElementById('cAssignedBilling'),{type: ctype2==='bar'?'bar':ctype2,
+      data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),backgroundColor:CHART_COLORS,borderWidth:2,borderColor:'var(--s2)'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:getShowLegend('assignedBilling',true),position: ctype2==='bar'?'top':'right',labels:{font:{size:11},boxWidth:12}},
+        tooltip:{callbacks:{label:(ctx)=>` ${ctx.label}: ₹${fmt(ctx.parsed.y!==undefined?ctx.parsed.y:ctx.parsed)}`}}},
+        ...(ctype2==='bar'?{scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10},callback:v=>'₹'+fmt(v)}}}}:{})}});
   }
 
   if(document.getElementById('cCollection')) {
@@ -8305,9 +8391,14 @@ function renderClients() {
   }
   const svFilter = csvEl?.value||'';
 
+  // Assigned-to filter
+  const assignedFilter = populateAssignedFilter('clientAssignedFilter');
+
   let cls = state.clients.length ? state.clients : getClients().map((n,i)=>({id:'auto'+i,name:n,num:''}));
   if(search) cls = cls.filter(cl=>cl.name.toLowerCase().includes(search)||(cl.num||'').toLowerCase().includes(search));
   if(gFilter) cls = cls.filter(cl=>(cl.group||'')===gFilter);
+  if(assignedFilter === '__unassigned__') cls = cls.filter(cl=>!cl.assignedTo);
+  else if(assignedFilter) cls = cls.filter(cl=>cl.assignedTo===assignedFilter);
   if(svFilter) cls = cls.filter(cl=>(cl.service||'')===svFilter);
 
   // Billing Completion % (Billed ÷ WO) — computed the same way as the card itself.
@@ -8428,7 +8519,8 @@ function toggleGroup(id) {
 }
 
 function buildClientCard(cl, i, rows) {
-  const cr = rows.filter(r=>r.client===cl.name && clientRowPassesFilters(r));
+  const cr = rows.filter(r=>r.client===cl.name && clientRowPassesFilters(r))
+    .sort((a,b)=> stageNumberOf(a.stage)-stageNumberOf(b.stage) || (a.sortOrder??999999)-(b.sortOrder??999999));
   // Use client's own WO amount if set, otherwise derive from invoices
   const clWoAmt = cl.woamt || 0;
   const tWO = clWoAmt || cr.reduce((s,r)=>s+Number(r.woamt||0),0);
@@ -8649,9 +8741,12 @@ function renderStages() {
   }
   const stgSvFVal = stgSvEl?.value||'';
 
-  // Build client→group map
-  const clientGroupMap = {}, clientNumMap = {};
-  state.clients.forEach(c=>{ clientGroupMap[c.name]=c.group||''; clientNumMap[c.name]=c.num||''; });
+  // Assigned-to filter
+  const stageAssignedFilter = populateAssignedFilter('stageAssignedFilter');
+
+  // Build client→group / client→assigned maps
+  const clientGroupMap = {}, clientNumMap = {}, clientAssignedMap = {};
+  state.clients.forEach(c=>{ clientGroupMap[c.name]=c.group||''; clientNumMap[c.name]=c.num||''; clientAssignedMap[c.name]=c.assignedTo||''; });
   // Apply local date filter + quick preset
   rows = applyLocalDateFilter(rows, stageDateFilter, stageDateSubVal);
   rows = applyLocalDateFilter(rows, dateFilterState.stage.mode, dateFilterState.stage.sub);
@@ -8661,6 +8756,8 @@ function renderStages() {
     if(ssF&&r.status!==ssF) return false;
     if(sgF&&(clientGroupMap[r.client]||'')!==sgF) return false;
     if(stgSvFVal && r.service !== stgSvFVal) return false;
+    if(stageAssignedFilter === '__unassigned__' && clientAssignedMap[r.client]) return false;
+    else if(stageAssignedFilter && stageAssignedFilter!=='__unassigned__' && clientAssignedMap[r.client]!==stageAssignedFilter) return false;
     if(sSearch&&!r.client.toLowerCase().includes(sSearch)&&!(r.wono||'').toLowerCase().includes(sSearch)&&!(r.invno||'').toLowerCase().includes(sSearch)) return false;
     if(!stageRowPassesFilters(r)) return false;
     return true;
@@ -8721,7 +8818,7 @@ function renderStages() {
   window._stagePageVisibleNames = disp;
   const _stageHiddenEntries = [];
   document.getElementById('stageCards').innerHTML = disp.map(c=>{
-    const cr = filtered.filter(r=>r.client===c);
+    const cr = filtered.filter(r=>r.client===c).sort((a,b)=> stageNumberOf(a.stage)-stageNumberOf(b.stage) || (a.sortOrder??999999)-(b.sortOrder??999999));
     if(!cr.length) return '';
     const tWO = woAmountForClient(c, cr);
     const tB = cr.reduce((s,r)=>s+Number(r.billed||0),0);
@@ -11740,12 +11837,16 @@ function reportFilteredRows() {
   const c = document.getElementById('rep_client')?.value || '';
   const sv = document.getElementById('rep_service')?.value || '';
   const st = document.getElementById('rep_status')?.value || '';
+  const asg = document.getElementById('rep_assigned')?.value || '';
   const c2g = {}; state.clients.forEach(x=>c2g[x.name]=x.group||'');
+  const c2asg = {}; state.clients.forEach(x=>c2asg[x.name]=x.assignedTo||'');
   rows = rows.filter(r=>{
     if(g && (c2g[r.client]||'')!==g) return false;
     if(c && r.client!==c) return false;
     if(sv && r.service!==sv) return false;
     if(st && r.status!==st) return false;
+    if(asg === '__unassigned__' && c2asg[r.client]) return false;
+    else if(asg && asg!=='__unassigned__' && c2asg[r.client]!==asg) return false;
     return true;
   });
   rows = applyLocalDateFilter(rows, repDateMode, repDateSub);
@@ -11777,6 +11878,7 @@ function populateReportFilters() {
   const stSel = document.getElementById('rep_status'); const curSt = stSel.value;
   stSel.innerHTML = '<option value="">All statuses</option>'+state.settings.statuses.map(s=>`<option ${s===curSt?'selected':''}>${s}</option>`).join('');
   if(curSt && !state.settings.statuses.includes(curSt)) stSel.value='';
+  populateAssignedFilter('rep_assigned');
 }
 
 function onRepGroupChange() {
@@ -11786,7 +11888,7 @@ function onRepGroupChange() {
   renderReports();
 }
 function resetReportFilters() {
-  ['rep_group','rep_client','rep_service','rep_status'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
+  ['rep_group','rep_client','rep_service','rep_status','rep_assigned'].forEach(id=>{const e=document.getElementById(id); if(e) e.value='';});
   repDateMode=''; repDateSub='';
   repAgeingBuckets = null;
   dateFilterState.rep={mode:'',sub:'',label:''};
@@ -12368,13 +12470,17 @@ function invoiceFilteredRows(overrideKey, overrideValue) {
   const svF = document.getElementById('invService')?.value||'';
   const cF = document.getElementById('invClient')?.value||'';
   const gF = document.getElementById('invGroup')?.value||'';
-  const c2g = {}; state.clients.forEach(c=>c2g[c.name]=c.group||'');
+  const asgF = populateAssignedFilter('invAssignedFilter');
+  const c2g = {}, c2asg = {};
+  state.clients.forEach(c=>{ c2g[c.name]=c.group||''; c2asg[c.name]=c.assignedTo||''; });
   let rows = fyRows().filter(r=>{
     if(invIdFilter && !invIdFilter.has(r.id)) return false;
     if(sF&&r.status!==sF) return false;
     if(cF&&r.client!==cF) return false;
     if(svF&&r.service!==svF) return false;
     if(gF&&(c2g[r.client]||'')!==gF) return false;
+    if(asgF === '__unassigned__' && c2asg[r.client]) return false;
+    else if(asgF && asgF!=='__unassigned__' && c2asg[r.client]!==asgF) return false;
     if(search&&!r.client.toLowerCase().includes(search)&&!(r.invno||'').toLowerCase().includes(search)&&!(r.wono||'').toLowerCase().includes(search)) return false;
     for(const k of ALL_COLFILTER_KEYS) {
       const fv = (k === overrideKey) ? overrideValue : colFilters[k];
@@ -13618,15 +13724,23 @@ let _relationalSyncBusy = false;
 // On (re)connect: pull everything from the relational tables, start realtime.
 async function cloudSyncOnConnect() {
   if(!_sb || !_cloudUser) return;
-  await relationalSyncPull();
+  await relationalSyncPull(true);   // clean pull — trust the server, don't push this device's old local leftovers
   cloudStartRealtime();
   showToast('Connected — live sync active.');
 }
 
-// Full refresh from the cloud tables. Merge-safe: any brand-new local record
-// that hasn't been synced yet (not on the server, not in our synced
-// snapshot) is kept and re-pushed, never silently dropped.
-async function relationalSyncPull() {
+// Full refresh from the cloud tables.
+// isInitialConnect=true (right after login): a CLEAN pull. Server data wins,
+// full stop — this device's pre-existing local data (which could be old,
+// stale, or leftover demo data from before this device ever connected) is
+// never auto-pushed to the shared cloud. This is what stops a different
+// device's old local data from silently contaminating everyone else's data
+// the moment it logs in.
+// isInitialConnect=false (manual Pull click / periodic poll during an
+// already-connected session): merge-safe — a genuine edit made on THIS
+// device moments before the pull completed is kept and re-pushed, since at
+// that point we know this device is actively, legitimately in use right now.
+async function relationalSyncPull(isInitialConnect) {
   if(!_sb || !_cloudUser) return;
   try {
     const uidVal = _cloudUser.id;
@@ -13641,15 +13755,27 @@ async function relationalSyncPull() {
     if(clientsRes.data) {
       const serverClients = clientsRes.data.map(r => ({ id:r.id, name:r.name, ...r.data }));
       const serverIds = new Set(serverClients.map(c=>c.id));
-      const unsynced = (state.clients||[]).filter(c => !serverIds.has(c.id) && !_lastSyncedClients[c.id]);
+      const unsynced = isInitialConnect ? [] : (state.clients||[]).filter(c => !serverIds.has(c.id) && !_lastSyncedClients[c.id]);
       state.clients = [...serverClients, ...unsynced];
       _lastSyncedClients = {};
       serverClients.forEach(c => { _lastSyncedClients[c.id] = JSON.stringify(c); });
     }
     if(invoicesRes.data) {
-      const serverInvoices = invoicesRes.data.map(r => ({ id:r.id, client:r.client, fy:r.fy, ...r.data }));
+      let serverInvoices = invoicesRes.data.map(r => ({ id:r.id, client:r.client, fy:r.fy, ...r.data }));
+      // A plain database read has no guaranteed row order — sort explicitly by
+      // (client, FY, sortOrder) so manually-arranged stage order actually
+      // survives being fetched back from the cloud. Invoices without a
+      // sortOrder yet (never manually reordered) keep a stable, consistent
+      // position at the end of their group via a large fallback value.
+      serverInvoices.sort((a,b) => {
+        if(a.client !== b.client) return (a.client||'').localeCompare(b.client||'');
+        if(a.fy !== b.fy) return (a.fy||'').localeCompare(b.fy||'');
+        const soA = a.sortOrder!==undefined ? a.sortOrder : 999999;
+        const soB = b.sortOrder!==undefined ? b.sortOrder : 999999;
+        return soA - soB;
+      });
       const serverIds = new Set(serverInvoices.map(i=>i.id));
-      const unsynced = (state.invoices||[]).filter(i => !serverIds.has(i.id) && !_lastSyncedInvoices[i.id]);
+      const unsynced = isInitialConnect ? [] : (state.invoices||[]).filter(i => !serverIds.has(i.id) && !_lastSyncedInvoices[i.id]);
       state.invoices = [...serverInvoices, ...unsynced];
       _lastSyncedInvoices = {};
       serverInvoices.forEach(i => { _lastSyncedInvoices[i.id] = JSON.stringify(i); });
@@ -13659,7 +13785,7 @@ async function relationalSyncPull() {
       const serverIds = new Set(serverAudit.map(a=>a.id));
       _lastSyncedAuditIds = new Set(serverIds); // these are confirmed already in the cloud
       // Keep any local-only entry that hasn't been synced yet (e.g. created just before this pull)
-      const unsyncedAudit = (state.auditLog||[]).filter(a => a.id && !serverIds.has(a.id) && !_lastSyncedAuditIds.has(a.id));
+      const unsyncedAudit = isInitialConnect ? [] : (state.auditLog||[]).filter(a => a.id && !serverIds.has(a.id) && !_lastSyncedAuditIds.has(a.id));
       state.auditLog = [...unsyncedAudit, ...serverAudit].sort((a,b)=> new Date(b.ts) - new Date(a.ts));
       trimAuditLogByRetention();
     }
@@ -13851,6 +13977,16 @@ function _handleRemoteInvoiceChange(payload) {
     const idx = (state.invoices||[]).findIndex(i=>i.id===r.id);
     if(idx>=0) state.invoices[idx] = rec; else state.invoices.push(rec);
     _lastSyncedInvoices[r.id] = json;
+    // A remote reorder (sortOrder change) needs the array re-sorted too, not
+    // just the single record patched in place — otherwise this device won't
+    // reflect someone else's stage reordering until the next periodic pull.
+    state.invoices.sort((a,b) => {
+      if(a.client !== b.client) return (a.client||'').localeCompare(b.client||'');
+      if(a.fy !== b.fy) return (a.fy||'').localeCompare(b.fy||'');
+      const soA = a.sortOrder!==undefined ? a.sortOrder : 999999;
+      const soB = b.sortOrder!==undefined ? b.sortOrder : 999999;
+      return soA - soB;
+    });
   }
   _doSaveLocalOnly();
   if(typeof renderInvoices==='function') renderInvoices();
@@ -14789,31 +14925,54 @@ async function saveUserModal(){
     const u = state.auth.users.find(x => x.id === userId);
     if(!u) return;
     const roleChanged = u.role !== role;
-    u.name = name; u.role = role; u.permissions = permissions;
-    if(u.status === 'invited'){ u.email = email; u.mobile = mobile; }
+    const nameChanged = u.name !== name;
+    const oldName = u.name;
 
-    let pwNote = '';
-    const wantsPwReset = isAdminCurrentUser() && document.getElementById('umPassToggle').checked;
-    if(wantsPwReset){
-      const p1 = document.getElementById('umNewPass').value;
-      const p2 = document.getElementById('umNewPass2').value;
-      if(p1.length < 8){ errEl.textContent = 'New password must be at least 8 characters.'; errEl.style.display='block'; return; }
-      if(p1 !== p2){ errEl.textContent = "New passwords don't match."; errEl.style.display='block'; return; }
-      const salt = randHex(16);
-      u.salt = salt;
-      u.passwordHash = await hashPassword(p1, salt);
-      u.failedAttempts = 0; u.lockedUntil = 0;         // clear any lockout — new password means a clean slate
-      if(u.status === 'invited'){                       // admin is activating them directly, skipping the invite step
-        u.status = 'active'; u.inviteToken = ''; u.inviteExpiry = 0;
+    const applyUserEdit = async () => {
+      u.name = name; u.role = role; u.permissions = permissions;
+      if(u.status === 'invited'){ u.email = email; u.mobile = mobile; }
+
+      let pwNote = '';
+      const wantsPwReset = isAdminCurrentUser() && document.getElementById('umPassToggle').checked;
+      if(wantsPwReset){
+        const p1 = document.getElementById('umNewPass').value;
+        const p2 = document.getElementById('umNewPass2').value;
+        if(p1.length < 8){ errEl.textContent = 'New password must be at least 8 characters.'; errEl.style.display='block'; return; }
+        if(p1 !== p2){ errEl.textContent = "New passwords don't match."; errEl.style.display='block'; return; }
+        const salt = randHex(16);
+        u.salt = salt;
+        u.passwordHash = await hashPassword(p1, salt);
+        u.failedAttempts = 0; u.lockedUntil = 0;         // clear any lockout — new password means a clean slate
+        if(u.status === 'invited'){                       // admin is activating them directly, skipping the invite step
+          u.status = 'active'; u.inviteToken = ''; u.inviteExpiry = 0;
+        }
+        pwNote = ' Password reset by admin.';
       }
-      pwNote = ' Password reset by admin.';
-    }
 
-    saveAuthNow();
-    auditEntry('update','user', u.name, (roleChanged ? `Role changed to ${role}.` : 'Details updated.') + pwNote);
-    closeUserModal();
-    renderUsersPage();
-    showToast(wantsPwReset ? 'User updated — password reset.' : 'User updated');
+      saveAuthNow();
+      let note = (roleChanged ? `Role changed to ${role}.` : 'Details updated.') + pwNote;
+      if(nameChanged) note = `Renamed from "${oldName}" to "${name}".` + (roleChanged ? ` Role changed to ${role}.` : '') + pwNote;
+      auditEntry('update','user', u.name, note);
+      closeUserModal();
+      renderUsersPage();
+      showToast(wantsPwReset ? 'User updated — password reset.' : (nameChanged ? `Renamed to "${name}" — updated everywhere they're referenced.` : 'User updated'));
+    };
+
+    // Renaming cascades everywhere this person is shown — Assigned to on
+    // clients, Audit Trail, exports, etc. — since the display name is looked
+    // up live from this record rather than copied at assignment time. Warn
+    // before proceeding so it's a deliberate choice, not a surprise.
+    if(nameChanged) {
+      const assignedCount = state.clients.filter(cl => cl.assignedTo === userId).length;
+      showConfirmDialog({
+        icon:'⚠️', title:`Rename "${oldName}" to "${name}"?`,
+        msg:`This name change will immediately show up everywhere this person is referenced${assignedCount?` — including ${assignedCount} client${assignedCount>1?'s':''} currently assigned to them`:''} (Assigned to filters, Audit Trail, exports, etc). Proceed?`,
+        showKeep:true, keepLabel:'Cancel', showDiscard:true, discardLabel:'Rename', discardClass:'pri',
+        onDiscard: applyUserEdit
+      });
+      return;
+    }
+    await applyUserEdit();
     return;
   }
   // Admin can create the account with a password directly, skipping the invite flow entirely
@@ -14874,6 +15033,19 @@ function deleteUserRow(userId){
   if(!u) return;
   if(u.role === 'admin' && isLastActiveAdmin(userId)){
     showToast("Can't delete the only Admin.", '#e34948');
+    return;
+  }
+  // Don't allow deleting someone who's still assigned to clients — that would
+  // silently orphan those assignments. Show exactly which clients so it's
+  // clear what needs to be reassigned first.
+  const assignedClients = state.clients.filter(cl => cl.assignedTo === userId);
+  if(assignedClients.length) {
+    const names = assignedClients.map(cl=>cl.name).join(', ');
+    showConfirmDialog({
+      icon:'🚫', title:`Can't remove ${u.name}`,
+      msg:`${u.name} is currently assigned to ${assignedClients.length} client${assignedClients.length>1?'s':''}: ${names}.\n\nReassign ${assignedClients.length>1?'these clients':'this client'} to someone else first (Edit Client → Assigned to), then try removing this user again.`,
+      showKeep:false, showDiscard:false, saveLabel:'Got it', onSave: ()=>{}
+    });
     return;
   }
   showConfirmDialog({
