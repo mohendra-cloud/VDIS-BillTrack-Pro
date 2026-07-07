@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- APP_VERSION: 2026-07-07-r1 -->
 <html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -641,6 +642,15 @@ html[data-density="compact"] .btn{padding:4px 10px;}
 </style>
 </head>
 <body>
+
+<!-- ═══════════ UPDATE-AVAILABLE BANNER — shown when this browser is running
+     an older version of the app than what's currently live, so people don't
+     silently keep working on stale code without realizing it. ═══════════ -->
+<div id="updateBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1f4e79;color:#fff;padding:8px 16px;font-size:13px;align-items:center;justify-content:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.15);">
+  <span><i class="ti ti-refresh-alert" style="font-size:15px;vertical-align:-2px"></i> A newer version of this app is available. Refresh to get the latest features and fixes.</span>
+  <button onclick="location.reload()" style="background:#fff;color:#1f4e79;border:none;padding:5px 14px;border-radius:6px;font-weight:600;font-size:12.5px;cursor:pointer;">Refresh now</button>
+  <button onclick="document.getElementById('updateBanner').style.display='none'" style="background:transparent;color:#cfe0f0;border:none;font-size:16px;cursor:pointer;line-height:1;">×</button>
+</div>
 
 <!-- ═══════════ CLOUD SYNC GATE — shown right after local login whenever this
      browser isn't already connected+logged in to Cloud Sync, so everyone
@@ -15313,10 +15323,33 @@ function warnIfStorageBroken(){
   window._storageBroken = true;
 }
 
+// ─── VERSION CHECK ──────────────────────────────────────────────────────────
+// Every device caches this file independently — updating GitHub does NOT
+// push new code out to already-open browsers anywhere. This periodically
+// re-fetches the live page (bypassing this browser's own cache) and compares
+// its embedded version marker to what's actually running here. If they
+// differ, someone deployed a newer file since this tab was loaded — show a
+// banner instead of silently running stale code with no way to tell.
+const APP_VERSION = '2026-07-07-r1';
+async function checkForAppUpdate() {
+  try {
+    const res = await fetch(window.location.href, { cache: 'no-store' });
+    if(!res.ok) return;
+    const text = await res.text();
+    const m = text.match(/<!--\s*APP_VERSION:\s*(.+?)\s*-->/);
+    if(m && m[1] && m[1] !== APP_VERSION) {
+      const banner = document.getElementById('updateBanner');
+      if(banner) banner.style.display = 'flex';
+    }
+  } catch(e) { /* silent — offline or blocked, just skip this check */ }
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 try{
   load();
   trimAuditLogByRetention(); // once per session — quietly drop entries past the configured retention window
+  setTimeout(checkForAppUpdate, 8000);              // check once shortly after load
+  setInterval(checkForAppUpdate, 5*60*1000);        // then every 5 minutes while the tab stays open
   // Start the autosave safety net (interval flush + flush-on-close) immediately,
   // not just after login — so data entered during first-run setup is never lost
   // to the 300ms save debounce if the tab closes/reloads right away.
