@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- APP_VERSION: 2026-07-08-r1 -->
+<!-- APP_VERSION: 2026-07-08-r2 -->
 <html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2375,7 +2375,7 @@ create policy "own rows" on public.app_settings for all using ((select auth.uid(
     </div>
     <div class="fr3" id="invFieldGrid">
       <div class="fg" data-fkey="invno"><label>Invoice number <span class="req-star" id="reqStar_inv_invno" style="display:none;color:#e34948">*</span></label><input id="f_invno" placeholder="INV-2025-001"></div>
-      <div class="fg" data-fkey="date"><label>Invoice date <span class="req-star" id="reqStar_inv_date" style="display:none;color:#e34948">*</span></label><input id="f_date" type="date" onchange="calcExpectedBillingDate();calcDueDate()"></div>
+      <div class="fg" data-fkey="date"><label>Invoice date <span class="req-star" id="reqStar_inv_date" style="display:none;color:#e34948">*</span></label><input id="f_date" type="date" onchange="calcDueDate()"></div>
       <div class="fg" data-fkey="wono"><label>Work order number <span class="req-star" id="reqStar_inv_wono" style="display:none;color:#e34948">*</span></label><input id="f_wono" placeholder="WO-2025-044"></div>
       <div class="fg" data-fkey="service">
         <label style="display:flex;align-items:center;gap:6px;">
@@ -2398,7 +2398,7 @@ create policy "own rows" on public.app_settings for all using ((select auth.uid(
           Stage / milestone
           <button type="button" onclick="toggleInvStageEdit()" style="padding:1px 7px;border-radius:5px;border:0.5px solid var(--fa);background:var(--bga);color:var(--ta);font-size:11px;cursor:pointer;font-family:var(--ff);" title="Add/edit stage"><i class="ti ti-settings-2" style="font-size:11px"></i> Manage</button>
         </label>
-        <select id="f_stage" onchange="calcExpectedBillingDate();autoFillStageDesc()"></select>
+        <select id="f_stage" onchange="autoFillStageDesc()"></select>
         <div id="invStageEdit" style="display:none;margin-top:7px;background:var(--s1);border:0.5px solid var(--bd);border-radius:8px;padding:8px 10px;">
           <div style="font-size:11px;font-weight:600;color:var(--tm);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">Manage Stages / Milestones</div>
           <div id="invStageTagList" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px;"></div>
@@ -2437,10 +2437,9 @@ create policy "own rows" on public.app_settings for all using ((select auth.uid(
       <div class="fg" data-fkey="expdate">
         <label style="display:flex;align-items:center;gap:6px;">
           Expected billing date
-          <button type="button" id="expDateEditToggle" onclick="toggleExpDateEdit()" style="padding:1px 7px;border-radius:5px;border:0.5px solid var(--fa);background:var(--bga);color:var(--ta);font-size:11px;cursor:pointer;font-family:var(--ff);" title="Edit expected billing date"><i class="ti ti-edit" style="font-size:11px"></i> Edit</button>
-          <button type="button" id="expDateAutoBtn" onclick="resetExpDateToAuto()" style="display:none;padding:1px 7px;border-radius:5px;border:0.5px solid var(--bd);background:var(--s1);color:var(--tm);font-size:11px;cursor:pointer;font-family:var(--ff);" title="Reset to auto"><i class="ti ti-refresh" style="font-size:11px"></i> Auto</button>
+          <button type="button" onclick="suggestExpectedBillingDate()" style="padding:1px 7px;border-radius:5px;border:0.5px solid var(--bd);background:var(--s1);color:var(--tm);font-size:11px;cursor:pointer;font-family:var(--ff);" title="Fill in a suggested date based on stage — you can still edit or clear it after"><i class="ti ti-wand" style="font-size:11px"></i> Suggest</button>
         </label>
-        <input id="f_expdate" class="calced" readonly="" placeholder="auto (set date &amp; stage)">
+        <input id="f_expdate" type="date">
       </div>
       <div class="fg" data-fkey="status"><label>Billing status</label><select id="f_status"></select></div>
       <div class="fg" data-fkey="duedate"><label>Payment due date</label><input id="f_duedate" type="date"></div>
@@ -4377,14 +4376,18 @@ function autoFillStageDesc() {
   if(sd[stage]) descEl.value = sd[stage];
 }
 
-function calcExpectedBillingDate() {
+// Manual-only — fills in a suggested date based on the selected stage, but
+// ONLY when the person explicitly clicks "Suggest". Never runs automatically
+// in the background, so it can never fight the person's own edits or refill
+// a date they deliberately cleared.
+function suggestExpectedBillingDate() {
   const inp = document.getElementById('f_expdate');
-  // Skip auto-calc if user has manually switched to edit mode
-  if(inp && !inp.readOnly) return;
-  const stage = document.getElementById('f_stage').value;
-  const date = document.getElementById('f_date').value;
+  if(!inp) return;
+  const stage = document.getElementById('f_stage')?.value;
+  const date = document.getElementById('f_date')?.value;
   const exp = getExpectedBillingDate(stage, date);
-  if(inp) { inp.value = exp ? fmtDate(exp) : ''; inp._raw = exp; }
+  if(exp) inp.value = exp;
+  else showToast('Pick a stage first to get a suggested date','#e34948');
 }
 
 // Auto-fill Payment due date = Invoice date + client's payment terms (days),
@@ -9912,8 +9915,7 @@ function openEditInvoice(id) {
   checkBilledVsWO();
   document.getElementById('f_notes').value = r.notes||'';
   document.getElementById('f_stage_desc').value = r.stage_desc||'';
-  document.getElementById('f_expdate').value = r.expdate ? fmtDate(r.expdate) : '';
-  document.getElementById('f_expdate')._raw = r.expdate||'';
+  document.getElementById('f_expdate').value = r.expdate || '';
   populateSelect(document.getElementById('f_fy'),state.settings.fyList,r.fy);
   populateSelect(document.getElementById('f_service'),['— select —',...state.settings.services],r.service||'');
   populateSelect(document.getElementById('f_stage'),state.settings.stages,r.stage||'');
@@ -10152,7 +10154,6 @@ function recalcModal() {
   document.getElementById('f_total').value = billed ? billed+gst : '';
   updateBalanceField();
   updateBalToBillField();
-  calcExpectedBillingDate();
   checkBilledVsWO();
 }
 
@@ -10259,7 +10260,6 @@ function recalcStageFromPct() {
   document.getElementById('f_total').value = billed ? billed+gst : '';
   updateBalanceField();
   updateBalToBillField();
-  calcExpectedBillingDate();
   checkBilledVsWO();
 }
 
@@ -10283,7 +10283,6 @@ function recalcStageFromValue() {
   document.getElementById('f_total').value = billed ? billed+gst : '';
   updateBalanceField();
   updateBalToBillField();
-  calcExpectedBillingDate();
   checkBilledVsWO();
 }
 
@@ -10452,8 +10451,7 @@ function saveInvoice(skipStageBilledCheck, skipWOExceedCheck) {
   // If the person switched this field to manual edit mode, respect exactly
   // what they left it as — including intentionally blank. Only fall back to
   // the auto-calculated date while the field is still in its default "auto" mode.
-  const expdateEl = document.getElementById('f_expdate');
-  const expdate = !expdateEl.readOnly ? (expdateEl._raw || '') : (expdateEl._raw || getExpectedBillingDate(stage, date));
+  const expdate = document.getElementById('f_expdate').value || '';
 
   // ── Required-field check (configurable in Settings → Field Settings) ─────
   const reqInv = (state.settings.requiredFields||{}).invoice || {};
@@ -11214,65 +11212,21 @@ function finishClientSave(entry, prevClient, origName, origNum, nameChanged, num
 // Replace saveClient globally
 window.saveClient = saveClientPatched;
 
-// ─── EXPECTED BILLING DATE EDIT TOGGLE ───────────────────────────────────────
-function toggleExpDateEdit() {
-  const inp = document.getElementById('f_expdate');
-  const editBtn = document.getElementById('expDateEditToggle');
-  const autoBtn = document.getElementById('expDateAutoBtn');
-  const isReadonly = inp.readOnly;
-  if(isReadonly) {
-    inp.readOnly = false;
-    inp.classList.remove('calced');
-    inp.type = 'date';
-    // Convert display value back to YYYY-MM-DD if needed
-    const raw = inp._raw || inp.value;
-    inp.value = raw || '';
-    editBtn.style.display = 'none';
-    autoBtn.style.display = '';
-    inp.focus();
-  }
-}
-
-function resetExpDateToAuto() {
-  const inp = document.getElementById('f_expdate');
-  const editBtn = document.getElementById('expDateEditToggle');
-  const autoBtn = document.getElementById('expDateAutoBtn');
-  inp.readOnly = true;
-  inp.classList.add('calced');
-  inp.type = 'text';
-  inp._raw = '';
-  editBtn.style.display = '';
-  autoBtn.style.display = 'none';
-  calcExpectedBillingDate();
-}
-
-// Patch openAddInvoice to reset expdate edit state
+// Patch openAddInvoice to enforce the add permission (unrelated to expdate — kept)
 const _origOpenAddInvoice = openAddInvoice;
 function openAddInvoicePatched() {
   if(!requirePerm('invoices','add')) return;
   _origOpenAddInvoice();
-  resetExpDateEditState();
 }
 window.openAddInvoice = openAddInvoicePatched;
 
-// Patch openEditInvoice to reset and then optionally mark editable if manually set
+// Patch openEditInvoice to enforce the edit permission (unrelated to expdate — kept)
 const _origOpenEditInvoice = openEditInvoice;
 function openEditInvoicePatched(id) {
   if(!requirePerm('invoices','edit')) return;
   _origOpenEditInvoice(id);
-  resetExpDateEditState();
 }
 window.openEditInvoice = openEditInvoicePatched;
-
-function resetExpDateEditState() {
-  const inp = document.getElementById('f_expdate');
-  if(!inp) return;
-  inp.readOnly = true;
-  inp.classList.add('calced');
-  inp.type = 'text';
-  document.getElementById('expDateEditToggle').style.display = '';
-  document.getElementById('expDateAutoBtn').style.display = 'none';
-}
 
 // ─── INLINE SERVICE CATEGORY MANAGE ──────────────────────────────────────────
 function toggleInvServiceEdit() {
@@ -11430,17 +11384,6 @@ function invEditStageInline(idx) {
   inp.addEventListener('blur', commit);
   inp.addEventListener('keydown', e=>{ if(e.key==='Enter') inp.blur(); if(e.key==='Escape'){inp.value=old;inp.blur();} });
 }
-
-// ─── PATCH saveInvoice TO USE MANUAL EXPDATE IF SET ──────────────────────────
-const _origSaveInvoice = saveInvoice;
-window.saveInvoice = function(skipStageBilledCheck, skipWOExceedCheck) {
-  const inp = document.getElementById('f_expdate');
-  // If editable (not readonly), use its raw date value
-  if(!inp.readOnly) {
-    inp._raw = inp.value; // store for saveInvoice to use
-  }
-  _origSaveInvoice(skipStageBilledCheck, skipWOExceedCheck);
-};
 
 function refreshData() {
   const icon = document.getElementById('refreshIcon');
@@ -15343,7 +15286,7 @@ function warnIfStorageBroken(){
 // its embedded version marker to what's actually running here. If they
 // differ, someone deployed a newer file since this tab was loaded — show a
 // banner instead of silently running stale code with no way to tell.
-const APP_VERSION = '2026-07-08-r1';
+const APP_VERSION = '2026-07-08-r2';
 async function checkForAppUpdate() {
   try {
     const res = await fetch(window.location.href, { cache: 'no-store' });
