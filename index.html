@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- APP_VERSION: 2026-07-08-r2 -->
+<!-- APP_VERSION: 2026-07-09-r6 -->
 <html lang="en"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1055,7 +1055,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
       <select onchange="onFilterGroupChange('stage')" id="stageGroup"><option value="">All groups</option></select>
       <select onchange="renderStages()" id="stageAssignedFilter" title="Show only clients assigned to a specific person"><option value="">All assigned</option></select>
       <select onchange="renderStages()" id="stageServiceFilter"><option value="">All services</option></select>
-      <span style="font-size:11px;color:var(--tm);white-space:nowrap;margin-left:4px" title="Filter clients by Collection % (Received ÷ WO)">Collection % :</span>
+      <span style="font-size:11px;color:var(--tm);white-space:nowrap;margin-left:4px" title="Filter clients by Collection % ((Received − GST of Stage Billed) ÷ WO)">Collection % :</span>
       <input type="number" min="0" max="500" placeholder="Min" id="stagePctMin" onchange="renderStages()" style="font-size:12px;padding:5px 6px;width:60px;">
       <span style="font-size:11px;color:var(--tm)">to</span>
       <input type="number" min="0" max="500" placeholder="Max" id="stagePctMax" onchange="renderStages()" style="font-size:12px;padding:5px 6px;width:60px;">
@@ -1169,6 +1169,7 @@ html[data-density="compact"] .btn{padding:4px 10px;}
           </optgroup>
           <optgroup label="Work Orders">
             <option value="wo_register">Work Order register — by Client</option>
+            <option value="wo_validity">Work Order validity tracker</option>
             <option value="wo_schedule">Work Order — stage-wise expected billing schedule</option>
           </optgroup>
           <optgroup label="MIS / Forecasting">
@@ -2011,6 +2012,7 @@ create policy "own rows" on public.app_settings for all using ((select auth.uid(
         </optgroup>
         <optgroup label="Work Orders">
           <option value="wo_register">Work Order register — by Client</option>
+          <option value="wo_validity">Work Order validity tracker</option>
           <option value="wo_schedule">Work Order — stage-wise expected billing schedule</option>
         </optgroup>
         <optgroup label="MIS / Financial">
@@ -8780,8 +8782,9 @@ function renderStages() {
   if(sgF) disp = disp.filter(c=>(clientGroupMap[c]||'')===sgF);
   if(sSearch) disp = disp.filter(c=>c.toLowerCase().includes(sSearch)||(clientNumMap[c]||'').toLowerCase().includes(sSearch));
 
-  // Collection % (Received ÷ WO) — computed the same way as the card itself.
-  // Used both for the optional range filter and to sort ascending (lowest % first).
+  // Collection % ((Received − GST of stage billed) ÷ WO) — computed the same
+  // way as the card itself. Used both for the optional range filter and to
+  // sort ascending (lowest % first).
   const sPctMinEl = document.getElementById('stagePctMin');
   const sPctMaxEl = document.getElementById('stagePctMax');
   const sPctMin = sPctMinEl && sPctMinEl.value !== '' ? Number(sPctMinEl.value) : null;
@@ -8790,7 +8793,8 @@ function renderStages() {
     const cr = filtered.filter(r=>r.client===c);
     const tWOc = woAmountForClient(c, cr);
     const tPc = cr.reduce((s,r)=>s+Number(r.paid||0),0);
-    return tWOc ? Math.round(tPc/tWOc*100) : 0;
+    const tGc = cr.reduce((s,r)=>s+Number(r.gstamt||0),0);
+    return tWOc ? Math.round((tPc-tGc)/tWOc*100) : 0;
   };
   if(sPctMin !== null || sPctMax !== null) {
     disp = disp.filter(c => {
@@ -8838,7 +8842,7 @@ function renderStages() {
     const tG = cr.reduce((s,r)=>s+Number(r.gstamt||0),0);
     const tT = cr.reduce((s,r)=>s+Number(r.totalamt||0),0);
     const tP = cr.reduce((s,r)=>s+Number(r.paid||0),0);
-    const truePctSt = tWO ? Math.round(tP/tWO*100) : 0;
+    const truePctSt = tWO ? Math.round((tP-tG)/tWO*100) : 0;
     const overCollected = truePctSt > 100;
     const pctLabelSt = truePctSt + '%';
     const cNum = clientNumMap[c]||'';
@@ -8878,7 +8882,7 @@ function renderStages() {
         <span class="sec-title">${linkClient(c)}${cNum?` <span class="client-num">${cNum}</span>`:''}</span>
         ${cGrp?`<span class="group-badge">${cGrp}</span>`:''}
         <span style="font-size:11px;color:var(--tm);margin-left:auto">${cr[0]?.wono||''} · ${cr[0]?.service||''}</span>
-        <span style="font-size:12px;font-weight:600;color:${overCollected?'#e34948':'#2a78d6'};margin-left:8px" title="Collection % = Total Received ÷ Work Order Amount. Shows what fraction of the WO value has actually been collected (cash in hand).${overCollected?' Over 100% means Received exceeds this client\'s WO Amount on record — check whether the WO Amount needs updating.':''}">Collection % <span style="font-size:10px;font-weight:400;color:var(--tm)">(Received / WO)</span>: ${pctLabelSt}${overCollected?' ⚠':''}</span>
+        <span style="font-size:12px;font-weight:600;color:${overCollected?'#e34948':'#2a78d6'};margin-left:8px" title="Collection % = (Total Received − GST of the stage-billed amount) ÷ Work Order Amount. Shows what fraction of the WO value has actually been collected, excluding the GST component so it compares like-for-like with the (GST-exclusive) WO Amount.${overCollected?' Over 100% means this exceeds this client\'s WO Amount on record — check whether the WO Amount needs updating.':''}">Collection % <span style="font-size:10px;font-weight:400;color:var(--tm)">((Received − GST of Stage Billed) / WO)</span>: ${pctLabelSt}${overCollected?' ⚠':''}</span>
       </div>
       ${isHiddenSt ? `<div style="padding:14px 18px;display:flex;align-items:center;gap:10px;">
         <span style="font-size:12px;color:var(--tm)">Details hidden</span>
@@ -11904,7 +11908,7 @@ function renderReports() {
   // Title + subtitle
   const meta = getReportMeta(rep.title);
   document.getElementById('rep_title').textContent = rep.title;
-  document.getElementById('rep_subtitle').textContent = `Period: ${meta.period} · ${describeReportScope()} · ${rows.length} rows`;
+  document.getElementById('rep_subtitle').textContent = `Financial year: ${meta.period} · ${describeReportScope()} · ${rows.length} rows`;
 
   // Table
   renderReportTable(rep, 'rep_table', rep.drillRows || rows);
@@ -11937,6 +11941,9 @@ const REPORT_BUILDER_FIELDS = [
   {key:'date', label:'Invoice date', cat:'Dates', getter:r=>r.date?fmtDate(r.date):''},
   {key:'duedate', label:'Due date', cat:'Dates', getter:r=>r.duedate?fmtDate(r.duedate):''},
   {key:'expdate', label:'Exp. billing date', cat:'Dates', getter:r=>r.expdate?fmtDate(r.expdate):''},
+  {key:'wostart', label:'WO start date', cat:'Dates', getter:(r,c2)=>{ const d=(c2[r.client]||{}).wostart; return d?fmtDate(d):''; }},
+  {key:'woexpiry', label:'WO expiration date', cat:'Dates', getter:(r,c2)=>{ const d=(c2[r.client]||{}).woexpiry; return d?fmtDate(d):''; }},
+  {key:'woext', label:'WO extension date validity', cat:'Dates', getter:(r,c2)=>{ const d=(c2[r.client]||{}).woext; return d?fmtDate(d):''; }},
   // Financial (numeric — these are the ones that get summed when grouping)
   {key:'woamt', label:'Work order amount ₹', cat:'Financial', num:true, getter:r=>Number(r.woamt||0)},
   {key:'stagepct', label:'Stage %', cat:'Financial', num:true, getter:r=>Number(r.stagepct||0)},
@@ -11948,6 +11955,7 @@ const REPORT_BUILDER_FIELDS = [
   {key:'outstanding', label:'Outstanding ₹', cat:'Financial', num:true, getter:r=>Number(r.totalamt||0)-Number(r.paid||0)},
   {key:'baltobill', label:'Bal. to Bill ₹ (Stage value − Billed)', cat:'Financial', num:true, getter:r=>balToBillOf(r)},
   // Client info (looked up from the linked client record)
+  {key:'addr', label:'Client address', cat:'Client', getter:(r,c2)=>(c2[r.client]||{}).addr||''},
   {key:'gstin', label:'Client GSTIN', cat:'Client', getter:(r,c2)=>(c2[r.client]||{}).gstin||''},
   {key:'contact', label:'Client contact person', cat:'Client', getter:(r,c2)=>(c2[r.client]||{}).contact||''},
   {key:'email', label:'Client email', cat:'Client', getter:(r,c2)=>(c2[r.client]||{}).email||''},
@@ -12529,10 +12537,47 @@ function getReportMeta(reportTitle, extra) {
   const companyDetailLine = coDetailParts.join('  ·  ');
   // Date basis = which date field the report's date filtering / ageing is built on.
   const dateBasis = extra.dateBasis || DATE_BASIS_LABELS.invoice;
+
+  // ── CLIENT MASTER INFO — when this export is scoped to exactly one client ──
+  // Two ways that can happen: (1) the export modal's "Specific clients" scope
+  // with a single client checked, or (2) "Current filtered view" while the
+  // originating screen's own Client filter is set to one specific client
+  // (e.g. Reports tab's Client dropdown, Invoices/Stage Tracker/Dashboard).
+  // Include their full master record either way — name, address, contact,
+  // assigned person, group, and complete work order details — not just rows.
+  let clientInfoBlock = null;
+  let singleClientName = '';
+  const scopeEl = document.getElementById('exp_scope');
+  if(scopeEl && scopeEl.value === 'clients') {
+    const checked = [...document.querySelectorAll('.exp-scope-cb:checked')].map(c=>c.value);
+    if(checked.length === 1) singleClientName = checked[0];
+  } else {
+    // 'current filtered view' — check the relevant screen's own Client filter
+    const ctxClientFieldMap = { report:'rep_client', invoices:'invClient', stages:'stageClient', dashboard:'dashClient' };
+    const fieldId = ctxClientFieldMap[_exportContext];
+    if(fieldId) singleClientName = document.getElementById(fieldId)?.value || '';
+  }
+  if(singleClientName) {
+    const cl = state.clients.find(c=>c.name===singleClientName);
+    if(cl) {
+      const assignedUser = cl.assignedTo ? (state.auth.users||[]).find(u=>u.id===cl.assignedTo) : null;
+      clientInfoBlock = {
+        name: cl.name||'', num: cl.num||'', group: cl.group||'',
+        address: cl.addr||'', contact: cl.contact||'', email: cl.email||'', phone: cl.phone||'',
+        gstin: cl.gstin||'', terms: cl.terms||'', service: cl.service||'',
+        assignedTo: assignedUser ? (assignedUser.name||assignedUser.email||'') : 'Unassigned',
+        wonum: cl.wonum||'', wodate: cl.wodate?fmtDate(cl.wodate):'', woamt: cl.woamt?('₹'+fmt(cl.woamt)):'',
+        wostart: cl.wostart?fmtDate(cl.wostart):'', woexpiry: cl.woexpiry?fmtDate(cl.woexpiry):'', woext: cl.woext?fmtDate(cl.woext):''
+      };
+    }
+  }
+
   return {
     company, sub, companyDetailLine, companyFooterNote: co.footerNote || '',
+    clientInfoBlock,
     report: reportTitle,
     period: fyLabel,
+    periodCovered: extra.periodCovered || '',
     group: grp ? grp : 'All groups',
     generated: now.toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'}),
     // Human description of the date window the data was filtered to (may be 'Whole FY / all dates')
@@ -12595,16 +12640,19 @@ function buildReportData(type, srcRows) {
       return {
         client:n, group: clientGroupName(n)==='(no group)'?'':clientGroupName(n),
         wonum: cl.wonum||'', wodate: cl.wodate||'', woamt,
+        woexpiry: cl.woexpiry||'', woext: cl.woext||'',
         stageval: a.stageval,
         billed:a.billed, baltobill: balWO, invoices:a.inv,
         totalamt:a.total, paid:a.paid, outstanding:a.total-a.paid
       };
     }).sort((x,y)=> (x.wodate||'').localeCompare(y.wodate||'') || x.client.localeCompare(y.client))
-      .map(d=>({...d, wodate: d.wodate ? fmtDate(d.wodate) : ''}));
+      .map(d=>({...d, wodate: d.wodate ? fmtDate(d.wodate) : '', woexpiry: d.woexpiry ? fmtDate(d.woexpiry) : '', woext: d.woext ? fmtDate(d.woext) : ''}));
     const cols = [
       {key:'client',label:'Client'},{key:'group',label:'Group'},
       {key:'wonum',label:'WO Number'},{key:'wodate',label:'WO Date'},
       {key:'woamt',label:'WO Amount ₹',num:true},
+      {key:'woexpiry',label:'WO Expiration Date'},
+      {key:'woext',label:'WO Extension Date Validity'},
       {key:'stageval',label:'Exp. Stage Billing ₹ (excl. GST)',num:true},
       {key:'billed',label:'Billed ₹',num:true},
       {key:'baltobill',label:'Bal. to Bill (WO−Billed) ₹',num:true},
@@ -12620,6 +12668,42 @@ function buildReportData(type, srcRows) {
     };
     return {title:'Work Order Register — by Client', cols, data, totals, totalLabelKey:'client',
       drillRows: rows.filter(r=>names.includes(r.client))};
+  }
+  // ── Work Order validity tracker — same logic as the Dashboard widget ──────
+  if(type==='wo_validity') {
+    const soon = state.settings.dateSoonDays||30;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const scopedClientNames = new Set(rows.map(r=>r.client));
+    const trackedClients = state.clients.filter(c=>(c.wostart||c.woexpiry||c.woext) && scopedClientNames.has(c.name));
+    function woStatusOf(c) {
+      const refDate = c.woext || c.woexpiry;
+      if(!refDate) return {label:'No expiry set', diff:99999};
+      const diff = Math.round((new Date(refDate)-new Date(todayStr))/86400000);
+      if(diff<0) return {label:'Expired', diff};
+      if(diff<soon) return {label:'Expiring soon', diff};
+      return {label:'Active', diff};
+    }
+    const data = trackedClients.map(c=>{
+      const st = woStatusOf(c);
+      return {
+        client:c.name, group: (c.group||''),
+        wostart: c.wostart?fmtDate(c.wostart):'', woexpiry: c.woexpiry?fmtDate(c.woexpiry):'',
+        woext: c.woext?fmtDate(c.woext):'', woamt: Number(c.woamt||0),
+        status: st.label, daysLeft: st.diff===99999 ? '' : st.diff
+      };
+    }).sort((a,b)=>{
+      const da = a.daysLeft===''?99999:a.daysLeft, db = b.daysLeft===''?99999:b.daysLeft;
+      return da-db;
+    });
+    const cols = [
+      {key:'client',label:'Client'},{key:'group',label:'Group'},
+      {key:'wostart',label:'WO Start Date'},{key:'woexpiry',label:'WO Expiration Date'},
+      {key:'woext',label:'WO Extension Date Validity'},
+      {key:'woamt',label:'WO Amount ₹',num:true},
+      {key:'status',label:'Status'},{key:'daysLeft',label:'Days Left',num:true}
+    ];
+    return {title:'Work Order Validity Tracker', cols, data, totals:null, totalLabelKey:'client',
+      drillRows: rows.filter(r=>trackedClients.some(c=>c.name===r.client))};
   }
   // ── Work Order stage-wise expected billing schedule ───────────────────────
   if(type==='wo_schedule') {
@@ -12847,6 +12931,20 @@ function reportToCSV(rep, meta) {
   lines.push(`"${meta.company} — ${meta.sub}"`);
   if(meta.companyDetailLine) lines.push(`"${String(meta.companyDetailLine).replace(/"/g,'""')}"`);
   lines.push(`"Report:","${rep.title}"`);
+  if(meta.clientInfoBlock) {
+    const ci = meta.clientInfoBlock;
+    lines.push('');
+    lines.push('"CLIENT MASTER INFORMATION"');
+    const add = (label,val) => { if(val) lines.push(`"${label}:","${String(val).replace(/"/g,'""')}"`); };
+    add('Client name', ci.name); add('Client number', ci.num); add('Group company', ci.group);
+    add('Address', ci.address); add('Contact person', ci.contact); add('Email', ci.email); add('Phone', ci.phone);
+    add('GSTIN', ci.gstin); add('Payment terms (days)', ci.terms); add('Service', ci.service);
+    add('Assigned to', ci.assignedTo);
+    add('WO number', ci.wonum); add('WO date', ci.wodate); add('WO amount', ci.woamt);
+    add('WO start date', ci.wostart); add('WO expiration date', ci.woexpiry); add('WO extension date validity', ci.woext);
+    lines.push('');
+  }
+  if(meta.periodCovered) lines.push(`"Period covered by this report:","${meta.periodCovered}"`);
   lines.push(`"Financial year:","${meta.period}"`);
   lines.push(`"Group filter:","${meta.group}"`);
   if(meta.scope) lines.push(`"Scope:","${String(meta.scope).replace(/"/g,'""')}"`);
@@ -12873,6 +12971,24 @@ function reportToCSV(rep, meta) {
   return lines.join('\n');
 }
 
+// Shared "Client Master Information" block, shown in exports scoped to a
+// single specific client — HTML table for Word, styled to match the report.
+function clientInfoBlockHTML(ci) {
+  if(!ci) return '';
+  const row = (label,val) => val ? `<tr><td style="padding:1px 14px 1px 0;color:#555"><b>${label}:</b></td><td>${val}</td></tr>` : '';
+  return `<div style="border:1px solid #1f4e79;border-radius:4px;padding:10px 14px;margin-bottom:14px;background:#f7faff">
+    <div style="font-size:13px;font-weight:bold;color:#1f4e79;margin-bottom:6px">Client Master Information</div>
+    <table style="font-size:11.5px;width:100%">
+      ${row('Client name', ci.name)}${row('Client number', ci.num)}${row('Group company', ci.group)}
+      ${row('Address', ci.address)}${row('Contact person', ci.contact)}${row('Email', ci.email)}${row('Phone', ci.phone)}
+      ${row('GSTIN', ci.gstin)}${row('Payment terms (days)', ci.terms)}${row('Service', ci.service)}
+      ${row('Assigned to', ci.assignedTo)}
+      ${row('WO number', ci.wonum)}${row('WO date', ci.wodate)}${row('WO amount', ci.woamt)}
+      ${row('WO start date', ci.wostart)}${row('WO expiration date', ci.woexpiry)}${row('WO extension date validity', ci.woext)}
+    </table>
+  </div>`;
+}
+
 function reportToWordHTML(rep, meta) {
   const th = rep.cols.map(c=>`<th style="border:1px solid #888;padding:5px 7px;background:#1f4e79;color:#fff;font-size:11px;text-align:${c.num?'right':'left'}">${c.label}</th>`).join('');
   const body = rep.data.map(r=>`<tr>${rep.cols.map(c=>{
@@ -12895,6 +13011,8 @@ function reportToWordHTML(rep, meta) {
       ${meta.companyDetailLine?`<div style="font-size:10.5px;color:#888;margin-top:2px">${meta.companyDetailLine}</div>`:''}
     </div>
     <div style="font-size:16px;font-weight:bold;margin-bottom:8px">${rep.title}</div>
+    ${clientInfoBlockHTML(meta.clientInfoBlock)}
+    ${meta.periodCovered?`<div style="font-size:12px;margin-bottom:8px"><b>Period covered by this report:</b> ${meta.periodCovered}</div>`:''}
     <table style="font-size:12px;margin-bottom:12px">
       <tr><td style="padding:1px 14px 1px 0"><b>Financial year:</b></td><td>${meta.period}</td></tr>
       <tr><td style="padding:1px 14px 1px 0"><b>Group filter:</b></td><td>${meta.group}</td></tr>
@@ -12914,6 +13032,20 @@ function reportToWorkbook(rep, meta) {
   aoa.push([meta.company+' — '+meta.sub]);
   if(meta.companyDetailLine) aoa.push([meta.companyDetailLine]);
   aoa.push([rep.title]);
+  if(meta.clientInfoBlock) {
+    const ci = meta.clientInfoBlock;
+    aoa.push([]);
+    aoa.push(['CLIENT MASTER INFORMATION']);
+    const add = (label,val) => { if(val) aoa.push([label+':', String(val)]); };
+    add('Client name', ci.name); add('Client number', ci.num); add('Group company', ci.group);
+    add('Address', ci.address); add('Contact person', ci.contact); add('Email', ci.email); add('Phone', ci.phone);
+    add('GSTIN', ci.gstin); add('Payment terms (days)', ci.terms); add('Service', ci.service);
+    add('Assigned to', ci.assignedTo);
+    add('WO number', ci.wonum); add('WO date', ci.wodate); add('WO amount', ci.woamt);
+    add('WO start date', ci.wostart); add('WO expiration date', ci.woexpiry); add('WO extension date validity', ci.woext);
+    aoa.push([]);
+  }
+  if(meta.periodCovered) aoa.push(['Period covered by this report:', meta.periodCovered]);
   aoa.push(['Financial year:', meta.period]);
   aoa.push(['Group filter:', meta.group]);
   if(meta.scope) aoa.push(['Scope:', meta.scope]);
@@ -12970,7 +13102,38 @@ function reportToPDFDoc(rep, meta, password) {
   const afterBasisY = titleY+39 + (basisLines.length-1)*10;
   doc.setTextColor(90,90,90);
   doc.text(`Date of export: ${meta.generated}`, 36, afterBasisY+12);
-  const tableStartY = afterBasisY + 24;
+  let tableStartY = afterBasisY + 24;
+
+  // ── Client Master Information — only present when this export is scoped
+  // to exactly one specific client ──────────────────────────────────────────
+  if(meta.clientInfoBlock) {
+    const ci = meta.clientInfoBlock;
+    const rows = [];
+    // jsPDF's built-in font has no glyph for ₹ — it renders as garbled
+    // characters. Swap it for "Rs" here, same as the main data table does.
+    const add = (label,val) => { if(val) rows.push([label, String(val).replace(/₹/g,'Rs ')]); };
+    add('Client name', ci.name); add('Client number', ci.num); add('Group company', ci.group);
+    add('Address', ci.address); add('Contact person', ci.contact); add('Email', ci.email); add('Phone', ci.phone);
+    add('GSTIN', ci.gstin); add('Payment terms (days)', ci.terms); add('Service', ci.service);
+    add('Assigned to', ci.assignedTo);
+    add('WO number', ci.wonum); add('WO date', ci.wodate); add('WO amount', ci.woamt);
+    add('WO start date', ci.wostart); add('WO expiration date', ci.woexpiry); add('WO extension date validity', ci.woext);
+    doc.setFontSize(10); doc.setTextColor(31,78,121); doc.setFont('helvetica','bold');
+    doc.text('Client Master Information', 36, tableStartY);
+    doc.autoTable({
+      body: rows, startY: tableStartY+6,
+      styles:{fontSize:8, cellPadding:2.5},
+      columnStyles:{0:{fontStyle:'bold', textColor:[80,80,80], cellWidth:130}},
+      theme:'plain', margin:{left:36,right:36}
+    });
+    tableStartY = doc.lastAutoTable.finalY + 16;
+  }
+
+  if(meta.periodCovered) {
+    doc.setFontSize(9.5); doc.setFont('helvetica','bold'); doc.setTextColor(31,78,121);
+    doc.text(`Period covered by this report: ${meta.periodCovered}`, 36, tableStartY);
+    tableStartY += 16;
+  }
 
   const rup = s => String(s===undefined||s===null?'':s).replace(/₹/g,'Rs');
   const head = [rep.cols.map(c=>rup(c.label))];
@@ -13131,7 +13294,8 @@ const DATE_BASIS_LABELS = {
   invoice:    'Invoice Date (the "Date" field captured on each invoice entry)',
   duedate:    'Due Date (payment due date on the invoice)',
   expbilling: 'Expected Billing Date (stage-wise forecast billing date)',
-  wodate:     'Work Order Date (date the work order was issued)'
+  wodate:     'Work Order Date (date the work order was issued)',
+  wovalidity: 'WO Extension Date (or WO Expiration Date if no extension is set) — the date validity is measured against'
 };
 
 // Returns the human-readable date basis for a given export report type.
@@ -13139,6 +13303,7 @@ function dateBasisForReport(type) {
   if(/^age_exp/.test(type) || type==='exp_schedule') return DATE_BASIS_LABELS.expbilling;
   if(/^age_out/.test(type)) return DATE_BASIS_LABELS.duedate;
   if(type==='wo_register') return DATE_BASIS_LABELS.wodate;
+  if(type==='wo_validity') return DATE_BASIS_LABELS.wovalidity;
   if(type==='wo_schedule') return DATE_BASIS_LABELS.expbilling;
   return DATE_BASIS_LABELS.invoice;
 }
@@ -13188,7 +13353,7 @@ function exportReportTitleFor(type) {
     age_out_group:'Ageing — Outstanding by Group', age_out_client:'Ageing — Outstanding by Client',
     age_out_service:'Ageing — Outstanding by Service', age_exp_group:'Ageing — Exp. Billing by Group',
     age_exp_client:'Ageing — Exp. Billing by Client', age_exp_service:'Ageing — Exp. Billing by Service',
-    wo_register:'Work Order Register — by Client', wo_schedule:'Work Order — Stage-wise Expected Billing Schedule',
+    wo_register:'Work Order Register — by Client', wo_validity:'Work Order Validity Tracker', wo_schedule:'Work Order — Stage-wise Expected Billing Schedule',
     client_ledger:'Client Ledger Statement'
   };
   return m[type] || 'Report';
@@ -13200,14 +13365,49 @@ function scopeDescription() {
   if(scope==='clients') { const p=[...document.querySelectorAll('.exp-scope-cb:checked')].map(c=>c.value); return p.length?('Clients: '+p.join(', ')):'No client selected'; }
   return 'Current filtered view ('+_exportContext+')';
 }
+// Echoes exactly what date filter is actually active — the literal input
+// range for "Date range" mode, or the preset's label otherwise. Checks TWO
+// places: (1) the export dialog's own separate date picker, and (2) if that's
+// not set, the ORIGINATING screen's own inline date filter — since exporting
+// via "Current filtered view" uses whatever filter is already active on that
+// tab (Reports/Invoices/Stage Tracker/Clients/Dashboard), not the dialog's
+// picker. This deliberately does NOT look at the actual data at all, so it
+// always matches what's actually selected. Returns '' (line omitted) when no
+// date filter is active anywhere relevant.
+function getFilterPeriodLabel() {
+  // 1) Export modal's own separate date picker takes priority if set
+  const {mode, sub} = getExportDateFilter();
+  if(mode === 'date' && sub) { const [f,t]=sub.split('|'); if(f&&t) return `${fmtDate(f)} to ${fmtDate(t)}`; }
+  if(mode === 'preset' && sub) { const l = presetLabelOf(sub); if(l) return l; }
+
+  // 2) Otherwise, fall back to whichever screen opened the export dialog —
+  // each tab has both a "classic" mode/sub filter and a "quick date bar" filter.
+  const ctxMap = {
+    report:    { cm: repDateMode,      cs: repDateSub,      quick: dateFilterState.rep },
+    invoices:  { cm: invDateFilter,    cs: invDateSub,       quick: dateFilterState.inv },
+    stages:    { cm: stageDateFilter,  cs: stageDateSubVal,  quick: dateFilterState.stage },
+    clients:   { cm: clientDateFilter, cs: clientDateSubVal, quick: dateFilterState.client },
+    dashboard: { cm: dashDateMode,     cs: dashDateSubVal,   quick: dateFilterState.dash },
+  };
+  const c = ctxMap[_exportContext];
+  if(c) {
+    if(c.cm === 'date' && c.cs) { const [f,t]=c.cs.split('|'); if(f&&t) return `${fmtDate(f)} to ${fmtDate(t)}`; }
+    else if(c.cm) { const l = presetLabelOf(c.cm, c.cs); if(l) return l; }
+    if(c.quick && c.quick.label) return c.quick.label;
+  }
+  return '';
+}
+
 function updateExportPreview() {
   const type = document.getElementById('exp_report').value;
   const title = exportReportTitleFor(type);
   const dateFilterDesc = exportDateFilterDesc();
   const dateBasis = dateBasisForReport(type);
-  const meta = getReportMeta(title, {dateFilterDesc, dateBasis, scope: scopeDescription()});
+  const expRows = resolveExportRows();
+  const periodCovered = getFilterPeriodLabel();
+  const meta = getReportMeta(title, {dateFilterDesc, dateBasis, scope: scopeDescription(), periodCovered});
   let count = 0;
-  try { count = buildReportData(type, resolveExportRows()).data.length; } catch(e){}
+  try { count = buildReportData(type, expRows).data.length; } catch(e){}
   document.getElementById('exp_preview').innerHTML = `
     <div style="font-weight:600;font-size:13px;color:var(--ta)">${meta.company}</div>
     <div style="color:var(--tm);font-size:11px;margin-bottom:6px">${meta.sub}</div>
@@ -13216,6 +13416,7 @@ function updateExportPreview() {
     <div><b>Scope:</b> ${scopeDescription()}</div>
     <div><b>Date filter applied:</b> ${meta.dateFilterDesc}</div>
     <div style="color:var(--tm);font-size:11px"><b style="color:var(--ts)">Date basis:</b> ${meta.dateBasis}</div>
+    ${periodCovered?`<div><b>Period covered:</b> ${periodCovered}</div>`:''}
     <div><b>Rows in report:</b> ${count}</div>
     <div><b>Date of export:</b> ${meta.generated}</div>`;
 }
@@ -13227,7 +13428,8 @@ async function runExport() {
   const password = (document.getElementById('exp_pw').value||'').trim();
   if(encrypt && !password) { showToast('Please enter a password','#e34948'); return; }
 
-  const rep = buildReportData(type, resolveExportRows());
+  const expRows = resolveExportRows();
+  const rep = buildReportData(type, expRows);
   if(!rep.data.length) { showToast('No data to export for this selection','#e34948'); return; }
 
   // Guard: required export engine must be loaded (CDN). CSV & Word need nothing.
@@ -13244,7 +13446,8 @@ async function runExport() {
   const meta = getReportMeta(rep.title, {
     dateFilterDesc: exportDateFilterDesc(),
     dateBasis: dateBasisForReport(type),
-    scope: scopeDescription()
+    scope: scopeDescription(),
+    periodCovered: getFilterPeriodLabel()
   });
   const safeFy = (meta.period||'export').replace(/[^a-z0-9]+/gi,'_');
   const baseName = `${rep.title.split('—')[0].trim().replace(/[^a-z0-9]+/gi,'_')}_${safeFy}`;
@@ -15286,7 +15489,7 @@ function warnIfStorageBroken(){
 // its embedded version marker to what's actually running here. If they
 // differ, someone deployed a newer file since this tab was loaded — show a
 // banner instead of silently running stale code with no way to tell.
-const APP_VERSION = '2026-07-08-r2';
+const APP_VERSION = '2026-07-09-r6';
 async function checkForAppUpdate() {
   try {
     const res = await fetch(window.location.href, { cache: 'no-store' });
